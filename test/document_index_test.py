@@ -15,7 +15,9 @@ class TestDocumentIndex:
         r'^\([a-z]{2}\)',               # Matches two lowercase letters within parentheses.
         r'^\((?:[1-9]|[1-9][0-9])\)',   # Matches numbers within parentheses, excluding leading zeros.
     ]    
-    document_index = DocumentIndex(regex_list_of_indices=index_patterns, exclusion_list=exclusion_list)
+    text_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\((?:i|ii|iii|iv|v|vi)\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+
+    document_index = DocumentIndex(regex_list_of_indices=index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
 
 
     def test_is_valid_reference(self):

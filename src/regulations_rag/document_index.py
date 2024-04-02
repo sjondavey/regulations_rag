@@ -18,7 +18,7 @@ class DocumentIndex:
         regex_list_of_indices (list): A list of regex patterns specifying the valid formats for indices.
         exclusion_list (list, optional): A list of index formats that should be excluded from validation. Defaults to an empty list.
     """
-    def __init__(self, regex_list_of_indices, text_version_of_indices = "", exclusion_list=[]):
+    def __init__(self, regex_list_of_indices, text_version = "", exclusion_list=[]):
         self.index_patterns = regex_list_of_indices
         self.exclusion_list = exclusion_list
         if text_version:
