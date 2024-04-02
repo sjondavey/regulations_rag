@@ -11,15 +11,21 @@ class DocumentIndex:
     
     Attributes:
         index_patterns (list): A list of regex patterns that define valid index formats.
+        text_version (str): A text description of the index that will be used in the System message to describe to the LLM what format to use when referring to sections of the document.
         exclusion_list (list): A list of index patterns to be excluded from validation, representing exceptions in the document structure.
         
     Parameters:
         regex_list_of_indices (list): A list of regex patterns specifying the valid formats for indices.
         exclusion_list (list, optional): A list of index formats that should be excluded from validation. Defaults to an empty list.
     """
-    def __init__(self, regex_list_of_indices, exclusion_list=[]):
+    def __init__(self, regex_list_of_indices, text_version_of_indices = "", exclusion_list=[]):
         self.index_patterns = regex_list_of_indices
         self.exclusion_list = exclusion_list
+        if text_version:
+            self.text_version = text_version
+        else:
+            combined_pattern = "".join(f"({pattern.lstrip('^')})" for pattern in regex_list_of_indices)
+            self.text_version =  "r'" + combined_pattern + "'"
 
     def is_valid_reference(self, reference):
         """
