@@ -1,8 +1,8 @@
 import logging
 import pandas as pd
 
-from src.regulations_rag.section_reference_checker import SectionReferenceChecker
-from src.regulations_rag.data_in_dataframes import load_csv_data, append_csv_data, load_parquet_data, append_parquet_data, load_data_from_files
+from regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.data_in_dataframes import DataInDataFrames, load_csv_data, append_csv_data, load_parquet_data, append_parquet_data, load_data_from_files
 
 
 """
@@ -90,33 +90,33 @@ def test_load_data():
     path_to_additional_index_as_parquet_file = ""
     path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
 
-    data = load_data_from_files(user_type, regulation_name, section_reference_checker, 
+    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
                                 path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)
-    l_r = len(data.regulations)
-    l_d = len(data.definitions)
-    l_i = len(data.index)
+    l_r = len(df_regulations)
+    l_d = len(df_definitions)
+    l_i = len(df_index)
 
     path_to_additional_manual_as_csv_file = ""
     path_to_additional_definitions_as_parquet_file = "./test/inputs/definitions_plus.parquet"
     path_to_additional_index_as_parquet_file = ""
-    data = load_data_from_files(user_type, regulation_name, section_reference_checker, 
+    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
                                 path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
                                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                                 path_to_workflow_as_parquet)
-    assert len(data.regulations) == l_r
-    assert len(data.definitions) > l_d
-    assert len(data.index) == l_i
+    assert len(df_regulations) == l_r
+    assert len(df_definitions) > l_d
+    assert len(df_index) == l_i
 
 
 def test_filter_relevant_sections():
     # I am not using data that is loaded here, just testing a method but I need an object
     user_type = "Authorised Dealer (AD)" 
     regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
-    
+
     path_to_manual_as_csv_file = "./test/inputs/manual.csv"
     path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
     path_to_index_as_parquet_file = "./test/inputs/index.parquet"
@@ -125,11 +125,19 @@ def test_filter_relevant_sections():
     path_to_additional_index_as_parquet_file = ""
     path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
 
-    data = load_data_from_files(user_type, regulation_name, section_reference_checker, 
+    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
                                 path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)
+
+    data = DataInDataFrames(user_type = user_type, 
+                            regulation_name = regulation_name, 
+                            section_reference_checker = section_reference_checker, 
+                            df_regulations = df_regulations, 
+                            df_definitions = df_definitions, 
+                            df_index = df_index, 
+                            df_workflow = df_workflow)
 
     #data = src.data.load_data_from_folders(chat_for_ad = True, base_directory = ".", embeddings_directory = "") 
 

@@ -1,4 +1,4 @@
-from src.regulations_rag.string_tools import match_strings_to_reference_list
+from regulations_rag.string_tools import match_strings_to_reference_list
 
 def test_match_strings_to_reference_list():
     # simple test of the main usecase

@@ -1,4 +1,4 @@
-from src.regulations_rag.embeddings import get_ada_embedding, \
+from regulations_rag.embeddings import get_ada_embedding, \
                                            get_closest_nodes
 import pandas as pd                        
 

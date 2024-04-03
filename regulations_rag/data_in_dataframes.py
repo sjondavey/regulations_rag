@@ -4,12 +4,12 @@ import pandas as pd
 from cryptography.fernet import Fernet
 from collections import Counter
 
-from src.regulations_rag.data import Data
+from regulations_rag.data import Data
 
-from src.regulations_rag.section_reference_checker import SectionReferenceChecker
-from src.regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
-from src.regulations_rag.string_tools import match_strings_to_reference_list
-from src.regulations_rag.reg_tools import get_regulation_detail
+from regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
+from regulations_rag.string_tools import match_strings_to_reference_list
+from regulations_rag.reg_tools import get_regulation_detail
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -452,7 +452,7 @@ def append_parquet_data(path_to_file, original_df, decryption_key = ""):
     return pd.concat([original_df, tmp], ignore_index = True)
 
 
-def load_data_from_files(user_type, regulation_name, section_reference_checker,
+def load_data_from_files(
               path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
               path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
               path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,

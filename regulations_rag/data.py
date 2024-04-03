@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.section_reference_checker import SectionReferenceChecker
 
 
 class Data(ABC):

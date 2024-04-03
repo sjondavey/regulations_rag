@@ -1,9 +1,9 @@
 import pytest
 import pandas as pd
 
-from src.regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.section_reference_checker import SectionReferenceChecker
 
-from src.regulations_rag.reg_tools import  get_regulation_detail, \
+from regulations_rag.reg_tools import  get_regulation_detail, \
                                            get_regulation_heading
 
 

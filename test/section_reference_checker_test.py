@@ -1,5 +1,5 @@
 import pytest
-from src.regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.section_reference_checker import SectionReferenceChecker
 
 class TestSectionReferenceChecker:
 
