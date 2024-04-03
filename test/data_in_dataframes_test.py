@@ -116,6 +116,7 @@ def test_filter_relevant_sections():
     # I am not using data that is loaded here, just testing a method but I need an object
     user_type = "Authorised Dealer (AD)" 
     regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    
     path_to_manual_as_csv_file = "./test/inputs/manual.csv"
     path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
     path_to_index_as_parquet_file = "./test/inputs/index.parquet"
