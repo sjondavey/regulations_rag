@@ -460,6 +460,8 @@ def load_data_from_files(user_type, regulation_name, section_reference_checker,
     df_regulations = load_csv_data(path_to_manual_as_csv_file)
     df_regulations = append_csv_data(path_to_additional_manual_as_csv_file, df_regulations)
 
+    if path_to_definitions_as_parquet_file == "":
+        df_definitions = pd.DataFrame([],columns = ["definition", "embedding", "source"])    
     df_definitions = load_parquet_data(path_to_definitions_as_parquet_file)
     df_definitions = append_parquet_data(path_to_additional_definitions_as_parquet_file, df_definitions)
 
@@ -471,8 +473,8 @@ def load_data_from_files(user_type, regulation_name, section_reference_checker,
     else:
         df_workflow = load_parquet_data(workflow_as_parquet_file)
 
-    
-    return DataInDataFrames(user_type, regulation_name, section_reference_checker, df_regulations, df_definitions, df_index, df_workflow)
+    return df_regulations, df_definitions, df_index, df_workflow
+    #return DataInDataFrames(user_type, regulation_name, section_reference_checker, df_regulations, df_definitions, df_index, df_workflow)
 
 # def load_data_from_folders(chat_for_ad, base_directory, embeddings_directory):
 #     base_directory = "." or ".." typically
