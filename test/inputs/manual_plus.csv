@@ -1,0 +1,28 @@
+indent|reference|text|document|page|heading|section_reference|word_count|sections_referenced
+0|Z.1|References|||True|Z.1|1|
+1|(A)|Commodities|||True|Z.1(A)|1|
+2|(i)|"Exchange Control treats Gold extensively in its own section (section C.). References to commodities generally include.
+        B.2(B)(i)(r): Private individuals resident in South Africa are not allowed to use South African credit, debit, or virtual cards to fund foreign currency accounts or international trading accounts, including trading commodities.
+        B.2(I)(iii): Commodities are included in the definition of foreign exposure for macro-prudential limit purposes.
+        D.1(G)(v)(b)(aa): Commodity futures and commodity option contracts with resident clients can be entered into if they are quoted and traded on the JSE Limited.
+        D.1(G)(v)(b)(bb): authorized dealers can arrange forward cover or hedging transactions with residents for price risk related to metals, by entering into commodity futures or options contracts.
+        E.(B)(i)(b)(bb): Special CFC accounts can be opened for local entities involved in the import and export of rough diamonds, crude oil, wrought gold, and/or steel to facilitate local settlement in foreign currency, with strict adherence to specified provisions regarding participation, registration, destination, transaction type, hedging, and regulatory compliance.
+        E.(B)(ii)(a)(gg)(4): Transfers between local entities in settlement of transactions in commodities like rough diamonds, crude oil, wrought gold and steel should be indicated as 'TRF 4 COMMODITIES' in Field 72.
+        G.(D)(viii)(c)(aa)(4): The prior written approval of the Financial Surveillance Department is required for the local issue, listing, or purchase of debt securities linked to commodity prices.
+        H.(E)(i)(c): Current commodity derivatives like White Maize are listed and traded on a South African exchange in Rand."|||False|Z.1(A)(i)|0|B.2(B)(i)(r), B.2(I)(iii), D.1(G)(v)(b)(aa), D.1(G)(v)(b)(bb), E.(B)(i)(b)(bb), E.(B)(ii)(a)(gg)(4), G.(D)(viii)(c)(aa)(4), H.(E)(i)(c)
+1|(B)|Travel|||True|Z.1(B)|1|
+2|(i)|Summary Travel Rules|||True|Z.1(B)(i)|3|
+3|(a)|There is no limit on the amount of Rand that may be spent on travelling within the Common Monetary Area (CMA) - B.4(B)(i)|||False|Z.1(B)(i)(a)|23|B.4(B)(i)
+3|(b)|Adult residents (above 18 years old) may use a travel allowance within the single discretionary allowance limit of R1 million per calendar year outside the CMA - B.4(A)(ii)|||False|Z.1(B)(i)(b)|28|B.4(A)(ii)
+3|(c)|Residents under 18 years old are permitted a travel allowance of up to R200 000 per calendar year - B.4(B)(i), B.4(B)(ii), B.4(B)(iv)(a)|||False|Z.1(B)(i)(c)|22|B.4(B)(i), B.4(B)(ii), B.4(B)(iv)(a)
+3|(d)|Foreign exchange, in terms of a travel allowance, may be provided in any authorised form. The travel allowance may also be transferred abroad to the traveller's own bank account, but not to a third party's account - B.4(B)(iii)|||False|Z.1(B)(i)(d)|38|B.4(B)(iii)
+3|(e)|Foreign currency for travel may not be bought more than 60 days prior to the departure of the traveller - B.4(B)(x)(a)|||False|Z.1(B)(i)(e)|21|B.4(B)(x)(a)
+3|(f)|Travellers may not use the foreign currency they purchase for any purpose other than stated or declared upon purchase - B.4(B)(ix)|||False|Z.1(B)(i)(f)|21|B.4(B)(ix)
+3|(g)|Travellers must convert unused foreign exchange to rand within 30 days of returning to South Africa - B.4(B)(ix)|||False|Z.1(B)(i)(g)|18|B.4(B)(ix)
+3|(h)|If a travel allowance was partly used, i.e. not all the funds were spent on holiday, the traveller is not permitted to keep the funds offshore or use them to buy offshore assets - B.4(B)(ix)|||False|Z.1(B)(i)(h)|35|B.4(B)(ix)
+3|(i)|The cost of land arrangements (such as hotels, cruises and tours) forms part of the travel allowance, but local payment of airfares does not - B.4(B)(vi)|||False|Z.1(B)(i)(i)|26|B.4(B)(vi)
+3|(j)|A South African Revenue Service (SARS) customs declaration may be required for any goods taken outside South Africa. If the insured value of the item exceeds R200 000, prior written approval from the Financial Surveillance Department through an Authorised Dealer is required. If the items exported will not be returned to South Africa and their insurance value exceeds R50 000, an application must be submitted to the Financial Surveillance Department through an Authorised Dealer - B.4(D)|||False|Z.1(B)(i)(j)|76|B.4(D)
+3|(k)|Travellers may also take cash (rand notes) up to the value of R25 000 per person - B.4(B)(i)|||False|Z.1(B)(i)(k)|18|B.4(B)(i)
+0|Z.2|Metadata|||True|Z.2|1|
+1|(A)|Version|||True|Z.2(A)|1|
+2|(i)|Version 1.92 of the Currency and Exchanges Manual for Authorised Dealers dated 2024-01-26|||False|Z.2(A)(i)|13|

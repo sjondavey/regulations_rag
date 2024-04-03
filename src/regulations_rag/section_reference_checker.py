@@ -1,8 +1,8 @@
 import re
 
-class DocumentIndex:
+class SectionReferenceChecker:
     """
-    A helper class for managing and validating legal document indices in a tree structure format.
+    A helper class for managing and validating legal document section references in a tree structure format.
     
     Legal documents often utilize a hierarchical numbering system for sections, which this class aims to support.
     The indexing might start with a capital letter, followed by an indented Roman numeral, then a double-indented lowercase letter in brackets, etc.
@@ -27,7 +27,7 @@ class DocumentIndex:
             combined_pattern = "".join(f"({pattern.lstrip('^')})" for pattern in regex_list_of_indices)
             self.text_version =  "r'" + combined_pattern + "'"
 
-    def is_valid_reference(self, reference):
+    def is_valid(self, reference):
         """
         Validates if a reference is valid based on predefined patterns and exclusions.
 
