@@ -1,3 +1,5 @@
+import logging
+
 from abc import ABC, abstractmethod
 
 from regulations_rag.section_reference_checker import SectionReferenceChecker
