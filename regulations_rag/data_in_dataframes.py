@@ -271,10 +271,10 @@ delimited list paying attention to ensure the format of the section reference is
 
     def cap_rag_section_token_length(self, relevant_sections, capped_number_of_tokens):
         #relevant_sections["section_reference"] = relevant_sections["section_reference"]
-        relevant_sections["raw_text"] = relevant_sections["section_reference"].apply(
-            lambda x: get_regulation_detail(x, self.manual, self.index_checker)
+        relevant_sections["regulation_text"] = relevant_sections["section_reference"].apply(
+            lambda x: get_regulation_detail(x, self.regulations, self.section_reference_checker)
         )        
-        relevant_sections["token_count"] = relevant_sections["raw_text"].apply(num_tokens_from_string)
+        relevant_sections["token_count"] = relevant_sections["regulation_text"].apply(num_tokens_from_string)
 
         # Initialize the cumulative sum and the counter 'n'
         cumulative_sum = 0
@@ -324,7 +324,7 @@ delimited list paying attention to ensure the format of the section reference is
         --------
         DataFrame
             A DataFrame with sections close to the user content embedding. This method also adds the content of the manual
-            to the DataFrame in the column "raw_text"
+            to the DataFrame in the column "regulation_text"
         """
         relevant_sections = get_closest_nodes(self.index, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)       
 
@@ -339,7 +339,7 @@ delimited list paying attention to ensure the format of the section reference is
 
         else:
             logger.log(DEV_LEVEL, "--   No relevant sections found")
-            relevant_sections = pd.DataFrame([], columns = ["section_reference", "cosine_distance", "count", "raw_text", "token_count"])
+            relevant_sections = pd.DataFrame([], columns = ["section_reference", "cosine_distance", "count", "regulation_text", "token_count"])
 
 
         return relevant_sections
@@ -445,9 +445,7 @@ def append_parquet_data(path_to_file, original_df, decryption_key = ""):
     if path_to_file == "":
         return original_df
 
-    tmp = load_parquet_data(path_to_file)
-    if decryption_key:
-        tmp['text'] = tmp['text'].apply(lambda x: fernet.decrypt(x.encode()).decode())
+    tmp = load_parquet_data(path_to_file, decryption_key = "")
 
     return pd.concat([original_df, tmp], ignore_index = True)
 
@@ -456,7 +454,9 @@ def load_data_from_files(
               path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
               path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
               path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
-              workflow_as_parquet_file = ""):
+              workflow_as_parquet_file = "",
+              decryption_key = ""):
+
     df_regulations = load_csv_data(path_to_manual_as_csv_file)
     df_regulations = append_csv_data(path_to_additional_manual_as_csv_file, df_regulations)
 
@@ -465,8 +465,9 @@ def load_data_from_files(
     df_definitions = load_parquet_data(path_to_definitions_as_parquet_file)
     df_definitions = append_parquet_data(path_to_additional_definitions_as_parquet_file, df_definitions)
 
-    df_index = load_parquet_data(path_to_index_as_parquet_file)
-    df_index = append_parquet_data(path_to_additional_index_as_parquet_file, df_index)
+    # index is the data that is encrypted
+    df_index = load_parquet_data(path_to_index_as_parquet_file, decryption_key)
+    df_index = append_parquet_data(path_to_additional_index_as_parquet_file, df_index, decryption_key)
 
     if workflow_as_parquet_file == "":
         df_workflow = pd.DataFrame([],columns = ["section_reference", "text", "source", "embedding"])    
@@ -474,41 +475,6 @@ def load_data_from_files(
         df_workflow = load_parquet_data(workflow_as_parquet_file)
 
     return df_regulations, df_definitions, df_index, df_workflow
-    #return DataInDataFrames(user_type, regulation_name, section_reference_checker, df_regulations, df_definitions, df_index, df_workflow)
-
-# def load_data_from_folders(chat_for_ad, base_directory, embeddings_directory):
-#     base_directory = "." or ".." typically
-#     embeddings_directory = "ada_v2" or "/v3_large/1024" or "/v3_large/3072"
-#     if chat_for_ad:
-#         logger.info("Loaded Authorised Dealer Manual")
-#         path_to_manual_as_csv_file = f"{base_directory}/inputs/ad_manual.csv"
-#         path_to_manual_as_csv_file_plus = f"{base_directory}/inputs/ad_manual_plus.csv"
-
-#         path_to_definitions_as_parquet_file = f"{base_directory}/inputs{embeddings_directory}/ad_definitions.parquet"
-#         path_to_definitions_as_parquet_file_plus = f"{base_directory}/inputs{embeddings_directory}/ad_definitions_plus.parquet"
-
-#         path_to_index_as_parquet_file = f"{base_directory}/inputs{embeddings_directory}/ad_index.parquet"
-#         path_to_index_as_parquet_file_plus = f"{base_directory}/inputs{embeddings_directory}/ad_index_plus.parquet"
-
-#         workflow_as_parquet_file = f"{base_directory}/inputs{embeddings_directory}/workflow.parquet"
-#     else:
-#         logger.info("Loaded ADLA manual")
-#         path_to_manual_as_csv_file = f"{base_directory}/inputs/adla_manual.csv"
-#         path_to_manual_as_csv_file_plus = ""
-
-#         path_to_definitions_as_parquet_file = f"{base_directory}/inputs{embeddings_directory}/adla_definitions.parquet"
-#         path_to_definitions_as_parquet_file_plus = ""
-
-#         path_to_index_as_parquet_file = f"{base_directory}/inputs{embeddings_directory}/adla_index.parquet"
-#         path_to_index_as_parquet_file_plus = ""
-
-#         workflow_as_parquet_file = f"{base_directory}/inputs{embeddings_directory}/workflow.parquet"
-
-#     return load_data_from_files(chat_for_ad,
-#                             path_to_manual_as_csv_file, path_to_manual_as_csv_file_plus, 
-#                             path_to_definitions_as_parquet_file, path_to_definitions_as_parquet_file_plus,
-#                             path_to_index_as_parquet_file, path_to_index_as_parquet_file_plus,
-#                             workflow_as_parquet_file)
 
 
 class EmbeddingParameters:
@@ -529,7 +495,6 @@ class EmbeddingParameters:
                 self.folder = "/v3_large/3072"
         else:
             raise ValueError("Unknown Embedding model or embedding dimension")
-
 
 
 class ChatParameters:
