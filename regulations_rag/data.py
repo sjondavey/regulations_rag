@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 from regulations_rag.section_reference_checker import SectionReferenceChecker
 
+# Create a logger for this module
+logger = logging.getLogger(__name__)
+DEV_LEVEL = 15
+logging.addLevelName(DEV_LEVEL, 'DEV')       
 
 class Data(ABC):
     """
