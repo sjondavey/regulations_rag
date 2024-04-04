@@ -12,7 +12,6 @@ from regulations_rag.data_in_dataframes import load_data_from_files, DataInDataF
 class TestRegulationChat:
     include_calls_to_api = True
     openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"),)
-    embedding_parameters = EmbeddingParameters(embedding_model = "text-embedding-ada-002", embedding_dimensions = 1536)
     chat_parameters = ChatParameters(chat_model = "gpt-3.5-turbo", temperature = 0, max_tokens = 500)
 
     #embedding_parameters = EmbeddingParameters(embedding_model = "text-embedding-ada-002", embedding_dimensions = 1536)
