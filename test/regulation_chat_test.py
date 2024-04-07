@@ -7,6 +7,7 @@ from regulations_rag.section_reference_checker import SectionReferenceChecker
 from regulations_rag.regulation_chat import RegulationChat
 from regulations_rag.data import  EmbeddingParameters, load_embedding_parameters, ChatParameters, load_chat_parameters
 from regulations_rag.data_in_dataframes import load_data_from_files, DataInDataFrames, load_parquet_data, save_parquet_data
+from regulations_rag.rerank import RerankAlgos
 
 
 class TestRegulationChat:
@@ -73,7 +74,13 @@ class TestRegulationChat:
                             df_index = df_index, 
                             df_workflow = df_workflow)
 
-    chat = RegulationChat(openai_client, embedding_parameters, chat_parameters, data)
+    rerank_algo = RerankAlgos.MOST_COMMON
+    # rerank_algo = RerankAlgos.LLM
+    # rerank_algo.params["openai_client"] = openai_client
+    # rerank_algo.params["model_to_use"] = chat_parameters.model
+
+
+    chat = RegulationChat(openai_client, embedding_parameters, chat_parameters, data, rerank_algo)
 
     # path_to_manual_as_csv_file_regulation_chat_test = "./inputs_test/manual.csv"
     # path_to_definitions_as_parquet_file_regulation_chat_test = "./inputs_test/definitions.parquet"

@@ -2,14 +2,13 @@ import logging
 import os
 import pandas as pd
 from cryptography.fernet import Fernet
-from collections import Counter
 
 from regulations_rag.data import Data
 
 from regulations_rag.section_reference_checker import SectionReferenceChecker
 from regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
-from regulations_rag.string_tools import match_strings_to_reference_list
 from regulations_rag.reg_tools import get_regulation_detail
+from regulations_rag.rerank import RerankAlgos, rerank
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -108,165 +107,90 @@ class DataInDataFrames(Data):
 
         return relevant_definitions
 
-    def filter_relevant_sections_boilerplate(self, relevant_sections):
-        # # Check it is not empty before you get here
-        # columns_to_check = ["section_reference", "text", "source", "cosine_distance"]
-        # if not all(column in relevant_sections.columns for column in columns_to_check):
-        #     raise AttributeError("The data received in the relevant_sections input does not have the correct columns")
+    # def filter_relevant_sections_boilerplate(self, relevant_sections):
+    #     # # Check it is not empty before you get here
+    #     # columns_to_check = ["section_reference", "text", "source", "cosine_distance"]
+    #     # if not all(column in relevant_sections.columns for column in columns_to_check):
+    #     #     raise AttributeError("The data received in the relevant_sections input does not have the correct columns")
 
-        max_search_items = 15
-        relevant_sections = relevant_sections.nsmallest(max_search_items, 'cosine_distance')
+    #     max_search_items = 15
+    #     relevant_sections = relevant_sections.nsmallest(max_search_items, 'cosine_distance')
 
-        logger.log(DEV_LEVEL, "--   top results from simple search")
-        for index, row in relevant_sections.iterrows():
-            logger.log(DEV_LEVEL, f'{row["cosine_distance"]:.4f}: {row["section_reference"]:>20}: {row["source"]:>15}: {row["text"]}')
+    #     logger.log(DEV_LEVEL, "--   top results from simple search")
+    #     for index, row in relevant_sections.iterrows():
+    #         logger.log(DEV_LEVEL, f'{row["cosine_distance"]:.4f}: {row["section_reference"]:>20}: {row["source"]:>15}: {row["text"]}')
 
-        return relevant_sections
-
-    def filter_relevant_sections_llm(self, openai_client, model_to_use, user_question, relevant_sections):
-        if relevant_sections.empty:
-            return pd.DataFrame([], columns = ["section_reference", "text", "source", "cosine_distance", "count"])
-
-        relevant_sections = self.filter_relevant_sections_boilerplate(relevant_sections=relevant_sections)
-
-        list_of_sections_and_text = []
-        for index, row in relevant_sections.iterrows():
-            list_of_sections_and_text.append(f"{row['section_reference']}: {row['text']}")
-        string_of_sections_and_text = "\n".join(list_of_sections_and_text)
-
-        short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
-        system_content = "You are assisting and Autorised Dealer to answer questions from the Currency and Exchange Control Manual for Authorised Dealers (CEMAD). \
-You will be given the users question followed by a list of sections from CEMAD along with the section's heading, summary or a questions which is answered in section. \
-Your job is to choose which sections are likely to contain an answer and output that list as a pipe delimited list. Do not respond with any other text. Just the pipe \
-delimited list paying attention to ensure the format of the section reference is {short_pattern} with no following text."
-        user_content = f"### Question: {user_question}### CEMAD Sections with heading, summary or a question that is answered in the section: \n{string_of_sections_and_text}"
-
-        messages = []
-        messages.append({"role": "system", "content": system_content})
-        messages.append({"role": "user", "content": user_content})
-
-        try:
-            response = openai_client.chat.completions.create(
-                                        model=model_to_use,
-                                        temperature=0,
-                                        max_tokens=500,
-                                        messages=messages
-                                    )
-            response_text = response.choices[0].message.content
-        except APIConnectionError as e:
-            print("API connection error")
+    #     return relevant_sections
 
 
-        relevant_section_references = [item.strip() for item in response_text.split('|')]    
+#     def filter_relevant_sections_llm(self, openai_client, model_to_use, user_question, relevant_sections):
+#         if relevant_sections.empty:
+#             return pd.DataFrame([], columns = ["section_reference", "text", "source", "cosine_distance", "count"])
 
-        checked_list_of_strings = match_strings_to_reference_list(list_of_strings = relevant_section_references, reference_list_of_strings = relevant_sections['section_reference'].to_list())
+#         relevant_sections = self.filter_relevant_sections_boilerplate(relevant_sections=relevant_sections)
 
-        logger.log(DEV_LEVEL, "--   results requested by LLM filter")
-        for section in checked_list_of_strings:
-            logger.log(DEV_LEVEL, f'{section}')
+#         list_of_sections_and_text = []
+#         for index, row in relevant_sections.iterrows():
+#             list_of_sections_and_text.append(f"{row['section_reference']}: {row['text']}")
+#         string_of_sections_and_text = "\n".join(list_of_sections_and_text)
 
-        # Initialize a list to hold the rows for the subset
-        subset_rows = []
+#         short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+#         system_content = "You are assisting and Autorised Dealer to answer questions from the Currency and Exchange Control Manual for Authorised Dealers (CEMAD). \
+# You will be given the users question followed by a list of sections from CEMAD along with the section's heading, summary or a questions which is answered in section. \
+# Your job is to choose which sections are likely to contain an answer and output that list as a pipe delimited list. Do not respond with any other text. Just the pipe \
+# delimited list paying attention to ensure the format of the section reference is {short_pattern} with no following text."
+#         user_content = f"### Question: {user_question}### CEMAD Sections with heading, summary or a question that is answered in the section: \n{string_of_sections_and_text}"
 
-        # Iterate over the list of strings
-        for string in checked_list_of_strings:
-            # Filter the DataFrame for rows matching the current string
-            matches = relevant_sections[relevant_sections['section_reference'].eq(string)]
+#         messages = []
+#         messages.append({"role": "system", "content": system_content})
+#         messages.append({"role": "user", "content": user_content})
+
+#         try:
+#             response = openai_client.chat.completions.create(
+#                                         model=model_to_use,
+#                                         temperature=0,
+#                                         max_tokens=500,
+#                                         messages=messages
+#                                     )
+#             response_text = response.choices[0].message.content
+#         except APIConnectionError as e:
+#             print("API connection error")
+
+
+#         relevant_section_references = [item.strip() for item in response_text.split('|')]    
+
+#         checked_list_of_strings = match_strings_to_reference_list(list_of_strings = relevant_section_references, reference_list_of_strings = relevant_sections['section_reference'].to_list())
+
+#         logger.log(DEV_LEVEL, "--   results requested by LLM filter")
+#         for section in checked_list_of_strings:
+#             logger.log(DEV_LEVEL, f'{section}')
+
+#         # Initialize a list to hold the rows for the subset
+#         subset_rows = []
+
+#         # Iterate over the list of strings
+#         for string in checked_list_of_strings:
+#             # Filter the DataFrame for rows matching the current string
+#             matches = relevant_sections[relevant_sections['section_reference'].eq(string)]
             
-            # If there are matches, find the one with the minimum 'cosine_distance'
-            if not matches.empty:
-                best_match = matches.loc[matches['cosine_distance'].idxmin()]
-                # Add the best match row to the list
-                subset_rows.append(best_match)
+#             # If there are matches, find the one with the minimum 'cosine_distance'
+#             if not matches.empty:
+#                 best_match = matches.loc[matches['cosine_distance'].idxmin()]
+#                 # Add the best match row to the list
+#                 subset_rows.append(best_match)
 
 
-        # Create a DataFrame from the list of best match rows
-        subset_df = pd.DataFrame(subset_rows).reset_index(drop=True)
+#         # Create a DataFrame from the list of best match rows
+#         subset_df = pd.DataFrame(subset_rows).reset_index(drop=True)
 
-        if len(checked_list_of_strings) != len(subset_df):
-            logger.log(DEV_LEVEL, f'Not all requested sections could be matched. The ones that could are:')
-            for index, row in subset_df.iterrows():
-                logger.log(DEV_LEVEL,f'{row["section_reference"]}')
-
-
-        return subset_df
+#         if len(checked_list_of_strings) != len(subset_df):
+#             logger.log(DEV_LEVEL, f'Not all requested sections could be matched. The ones that could are:')
+#             for index, row in subset_df.iterrows():
+#                 logger.log(DEV_LEVEL,f'{row["section_reference"]}')
 
 
-    def filter_relevant_sections(self, relevant_sections):
-        """
-        Refines and selects the most relevant sections to be sent to the LLM based on the provided dataframe of sections,
-        their cosine distances, and occurrences. It prioritizes the top result, the most common section (mode), and other
-        frequently found sections that are not the top result or mode. It also ensures diversity in the selection by including
-        sections based on their frequency and cosine distance.
+#         return subset_df
 
-        Parameters:
-        - relevant_sections (DataFrame): A dataframe containing sections with their cosine distances.
-
-        Returns:
-        - DataFrame: A dataframe with the selected references, their minimum cosine distances, and count.
-        """
-        if relevant_sections.empty:
-            return pd.DataFrame([], columns = ["section_reference", "text", "source", "cosine_distance", "count"])
-
-        relevant_sections = self.filter_relevant_sections_boilerplate(relevant_sections=relevant_sections)
-
-        search_sections = []
-
-        # Top result
-        top_result = relevant_sections.iloc[0].copy()
-        count = (relevant_sections['section_reference'] == top_result["section_reference"]).sum()
-        top_result['count'] = count # add the field count
-        search_sections.append(top_result)
-        logger.log(DEV_LEVEL, f'Top result: {top_result["section_reference"]} with a cosine distance of {top_result["cosine_distance"]:.4f}')
-
-        # Mode
-        mode_value_list = relevant_sections['section_reference'].mode()
-        if len(mode_value_list) == 1:
-            mode_value = mode_value_list[0]
-            if mode_value != top_result["section_reference"]:
-                mode_sections = relevant_sections[relevant_sections['section_reference'] == mode_value]
-                mode_result = mode_sections.iloc[0].copy()
-                mode_result['count'] = len(mode_sections)
-                search_sections.append(mode_result)
-                logger.log(DEV_LEVEL, f"Most common section: {mode_result['section_reference']} with a minimum cosine distance of {mode_result['cosine_distance']:.4f}")
-
-        elif not mode_value_list.empty:
-            # If there are multiple modes, treat as if no mode by setting mode_value_list to be empty
-            # This block assumes that mode_value_list should be considered empty if the mode's occurrence is not unique
-            mode_value_list = pd.Series(dtype='object') 
-            logger.log(DEV_LEVEL, "Multiple modes found, treated as no unique mode.")
-
-        else:
-            logger.log(DEV_LEVEL, "No mode")
-
-        # Frequent references excluding top result and mode
-        count_dict = Counter(relevant_sections['section_reference'])
-        for section, freq in count_dict.items():
-            if freq > 1 and section not in [top_result["section_reference"], mode_value_list[0] if not mode_value_list.empty else None]:
-                sub_frame = relevant_sections[relevant_sections['section_reference'] == section]
-                repeat_find = sub_frame.iloc[0].copy()
-                repeat_find['count'] = len(sub_frame)
-                search_sections.append(repeat_find)
-                logger.log(DEV_LEVEL, f"Reference: {repeat_find['section_reference']}, Count: {repeat_find['count']}, Min Cosine-Distance: {repeat_find['cosine_distance']:.4f}")
-        
-        # Additional checks for diversity if only one section is selected initially
-        if len(search_sections) == 1 and len(relevant_sections) > 1:
-            logger.log(DEV_LEVEL, 'Only the top result added but more were found. Adding the next most likely answer(s).')
-            remaining_sections = relevant_sections[~relevant_sections['section_reference'].isin([top_result["section_reference"]])]
-            added_count = 0
-            for index, row in remaining_sections.iterrows():
-                if added_count >= 2:  # Break after adding two additional results
-                    break
-                next_most_likely = row.copy()
-                next_most_likely['count']= 1
-
-                logger.log(DEV_LEVEL, f"Reference: {next_most_likely['section_reference']}, Count: {next_most_likely['count']}, Min Cosine-Distance: {next_most_likely['cosine_distance']:.4f}")
-
-                search_sections.append(next_most_likely)
-                added_count += 1
-
-        # Note the order of the search_section is preserved        
-        return pd.DataFrame(search_sections)
 
 
     def cap_rag_section_token_length(self, relevant_sections, capped_number_of_tokens):
@@ -309,7 +233,7 @@ delimited list paying attention to ensure the format of the section reference is
 
 
 
-    def get_relevant_sections(self, user_content, user_content_embedding, threshold, openai_client = "", model_to_use = ""):
+    def get_relevant_sections(self, user_content, user_content_embedding, threshold, rerank_algo = RerankAlgos.NONE):
         """
         Retrieves sections close to the given user content embedding.
 
@@ -326,21 +250,22 @@ delimited list paying attention to ensure the format of the section reference is
             A DataFrame with sections close to the user content embedding. This method also adds the content of the manual
             to the DataFrame in the column "regulation_text"
         """
-        relevant_sections = get_closest_nodes(self.index, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)       
+        relevant_sections = get_closest_nodes(self.index, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold) 
+        n = rerank_algo.params["initial_section_number_cap"]
+        relevant_sections = relevant_sections.nsmallest(n, 'cosine_distance')      
+        logger.log(DEV_LEVEL, f"Selecting the top {n} items based on cosine-similarity score")
+        for index, row in relevant_sections.iterrows():
+            logger.log(DEV_LEVEL, f'{row["cosine_distance"]:.4f}: {row["section_reference"]:>20}: {row["source"]:>15}: {row["text"]}')
 
         if not relevant_sections.empty:
             logger.log(DEV_LEVEL, "--   Relevant sections found")
-            if not openai_client:
-                relevant_sections = self.filter_relevant_sections(relevant_sections)
-            else:
-                relevant_sections = self.filter_relevant_sections_llm(openai_client = openai_client, model_to_use = model_to_use, user_question = user_content, relevant_sections = relevant_sections)
-            
-            relevant_sections = self.cap_rag_section_token_length(relevant_sections = relevant_sections, capped_number_of_tokens = 3100)
+            rerank_algo.params["user_question"] = user_content
+            rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo)        
+            relevant_sections = self.cap_rag_section_token_length(relevant_sections, rerank_algo.params["final_token_cap"])
 
         else:
             logger.log(DEV_LEVEL, "--   No relevant sections found")
             relevant_sections = pd.DataFrame([], columns = ["section_reference", "cosine_distance", "count", "regulation_text", "token_count"])
-
 
         return relevant_sections
 

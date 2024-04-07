@@ -21,6 +21,7 @@ from regulations_rag.embeddings import get_ada_embedding, \
                            num_tokens_from_string,  \
                            num_tokens_from_messages
 
+from regulations_rag.rerank import RerankAlgos, rerank
 
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ class RegulationChat():
                  embedding_parameters,
                  chat_parameters,
                  data,
+                 rerank_algo = RerankAlgos.NONE,   
                  user_name_for_logging = 'test_user'): 
 
         self.user_name = user_name_for_logging
@@ -76,6 +78,7 @@ class RegulationChat():
         self.embedding_parameters = embedding_parameters
         self.chat_parameters = chat_parameters
         self.data = data      
+        self.rerank_algo = rerank_algo
         self.reset_conversation_history()
 
     def reset_conversation_history(self):
@@ -487,7 +490,7 @@ class RegulationChat():
         return RegulationChat.Prefix.FAIL, "The LLM was not able to return an acceptable answer. "
         
 
-    def similarity_search(self, user_content, search_option = ''):
+    def similarity_search(self, user_content):
         """
         Finds the index values, definitions and workflows that are most similar to the provided user content. A workflow is 
         triggered if the lowest cosine similarity score for the closest workflow is lower that the lowest cosine similarity
@@ -527,19 +530,15 @@ class RegulationChat():
                 workflow_triggered = "none"        
 
 
-        if search_option == "llm":
-            relevant_sections = self.data.get_relevant_sections(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold, openai_client = self.openai_client, model_to_use = self.chat_parameters.model)
-        else:
-            relevant_sections = self.data.get_relevant_sections(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        relevant_sections = self.data.get_relevant_sections(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        if not relevant_sections.empty:    
         
-        if not relevant_sections.empty:
-            most_relevant_section_score = relevant_sections.iloc[0]['cosine_distance']
+            if not relevant_sections.empty:    
+                most_relevant_section_score = relevant_sections.iloc[0]['cosine_distance']
 
-            if most_relevant_section_score < most_relevant_workflow_score and workflow_triggered != "none": # there is something more relevant than a workflow
-                logger.log(DEV_LEVEL, f"Found a section that was more relevant than the workflow: {workflow_triggered}")
-                workflow_triggered = "none"
-        # relevant_sections["regulation_text"] = relevant_sections["section_reference"].apply(self.get_regulation_detail)
-        # relevant_sections["token_count"] = relevant_sections["regulation_text"].apply(num_tokens_from_string)
+                if most_relevant_section_score < most_relevant_workflow_score and workflow_triggered != "none": # there is something more relevant than a workflow
+                    logger.log(DEV_LEVEL, f"Found a section that was more relevant than the workflow: {workflow_triggered}")
+                    workflow_triggered = "none"
 
         return workflow_triggered, relevant_definitions, relevant_sections
         

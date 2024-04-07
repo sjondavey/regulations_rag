@@ -3,6 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.rerank import RerankAlgos
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ class Data(ABC):
         pass
 
     @abstractmethod
-    def get_relevant_sections(self, user_content, user_content_embedding, threshold):
+    def get_relevant_sections(self, user_content, user_content_embedding, threshold, RerankAlgos = RerankAlgos.NONE):
         """
         Retrieves sections close to the given user content embedding. This should also filter the sections so that the
         the returned chunks don't contain 'too many' tokens
