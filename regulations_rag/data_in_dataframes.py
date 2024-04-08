@@ -277,15 +277,15 @@ def save_parquet_data(df, path_to_file, decryption_key = ""):
         df['text'] = df['text'].apply(lambda x: fernet.encrypt(x.encode()).decode())
     df.to_parquet(path_to_file, engine = 'pyarrow')
     # but leave the column unchanged in the input df so the user can continue to use it
-    # if decryption_key:
-    #     df['text'] = df['text'].apply(lambda x: fernet.decrypt(x.encode()).decode())
+    if decryption_key:
+        df['text'] = df['text'].apply(lambda x: fernet.decrypt(x.encode()).decode())
 
 
 def append_parquet_data(path_to_file, original_df, decryption_key = ""):
     if path_to_file == "":
         return original_df
 
-    tmp = load_parquet_data(path_to_file, decryption_key = "")
+    tmp = load_parquet_data(path_to_file, decryption_key)
 
     return pd.concat([original_df, tmp], ignore_index = True)
 
