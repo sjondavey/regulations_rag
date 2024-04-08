@@ -277,8 +277,8 @@ def save_parquet_data(df, path_to_file, decryption_key = ""):
         df['text'] = df['text'].apply(lambda x: fernet.encrypt(x.encode()).decode())
     df.to_parquet(path_to_file, engine = 'pyarrow')
     # but leave the column unchanged in the input df so the user can continue to use it
-    if decryption_key:
-        df['text'] = df['text'].apply(lambda x: fernet.decrypt(x.encode()).decode())
+    # if decryption_key:
+    #     df['text'] = df['text'].apply(lambda x: fernet.decrypt(x.encode()).decode())
 
 
 def append_parquet_data(path_to_file, original_df, decryption_key = ""):
@@ -315,6 +315,52 @@ def load_data_from_files(
         df_workflow = load_parquet_data(workflow_as_parquet_file)
 
     return df_regulations, df_definitions, df_index, df_workflow
+
+def create_test_data():
+    """
+    Creates and returns a SectionReferenceChecker instance used for testing.
+    """
+    exclusion_list = ['Legal context', 'Introduction']
+    index_patterns = [
+        r'^[A-Z]\.\d{0,2}',             # Matches capital letter followed by a period and up to two digits.
+        r'^\([A-Z]\)',                  # Matches single capital letters within parentheses.
+        r'^\((i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv|xvi|xvii|xviii|xix|xx|xxi|xxii|xxiii|xxiv|xxv|xxvi|xxvii)\)', # Matches Roman numerals within parentheses.
+        r'^\([a-z]\)',                  # Matches single lowercase letters within parentheses.
+        r'^\([a-z]{2}\)',               # Matches two lowercase letters within parentheses.
+        r'^\((?:[1-9]|[1-9][0-9])\)',   # Matches numbers within parentheses, excluding leading zeros.
+    ]    
+    text_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\((?:i|ii|iii|iv|v|vi)\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+
+    section_reference_checker = SectionReferenceChecker(regex_list_of_indices=index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
+
+    path_to_manual_as_csv_file = "./test/inputs/manual.csv"
+    path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
+    path_to_index_as_parquet_file = "./test/inputs/index.parquet"
+    path_to_additional_manual_as_csv_file = ""
+    path_to_additional_definitions_as_parquet_file = ""
+    path_to_additional_index_as_parquet_file = ""
+    path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
+
+    decryption_key = os.getenv('excon_encryption_key')
+
+    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
+                                path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
+                                path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
+                                path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
+                                path_to_workflow_as_parquet,
+                                decryption_key=decryption_key)
+
+    user_type = "Authorised Dealer (AD)" 
+    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+
+    data = DataInDataFrames(user_type = user_type, 
+                            regulation_name = regulation_name, 
+                            section_reference_checker = section_reference_checker, 
+                            df_regulations = df_regulations, 
+                            df_definitions = df_definitions, 
+                            df_index = df_index, 
+                            df_workflow = df_workflow)
+    return data
 
 
 class EmbeddingParameters:
