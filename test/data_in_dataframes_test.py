@@ -79,8 +79,6 @@ def test_append_parquet_data():
     assert not df_text_all.isna().any().any()
 
 def test_load_data():
-    user_type = "Authorised Dealer (AD)" 
-    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
 
     path_to_manual_as_csv_file = "./test/inputs/manual.csv"
     path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
@@ -95,6 +93,7 @@ def test_load_data():
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)
+
     l_r = len(df_regulations)
     l_d = len(df_definitions)
     l_i = len(df_index)
@@ -112,11 +111,9 @@ def test_load_data():
     assert len(df_index) == l_i
 
 
-def test_filter_relevant_sections():
-    # I am not using data that is loaded here, just testing a method but I need an object
-    user_type = "Authorised Dealer (AD)" 
-    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
 
+def test_cap_rag_section_token_length():
+    
     path_to_manual_as_csv_file = "./test/inputs/manual.csv"
     path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
     path_to_index_as_parquet_file = "./test/inputs/index.parquet"
@@ -131,6 +128,9 @@ def test_filter_relevant_sections():
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)
 
+    user_type = "Authorised Dealer (AD)" 
+    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+
     data = DataInDataFrames(user_type = user_type, 
                             regulation_name = regulation_name, 
                             section_reference_checker = section_reference_checker, 
@@ -139,162 +139,21 @@ def test_filter_relevant_sections():
                             df_index = df_index, 
                             df_workflow = df_workflow)
 
-    #data = src.data.load_data_from_folders(chat_for_ad = True, base_directory = ".", embeddings_directory = "") 
-
-    output_columns = ["section_reference", "cosine_distance", "source", "text", "count"]
     test_data = []
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 0
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 1
-    assert df_filtered_test_data.iloc[0]["count"] == 1
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
+    test_data.append(['A.3(A)', 0.1, "question", "some text here"])
+    test_data.append(['A.3(E)', 0.2, "question", "some text here"])
+    test_data.append(['Legal Context', 0.3, "question", "some text here"])
+    test_data.append(['C.(E)', 0.5, "question", "some text here"])
+    test_data.append(['G.(A)', 0.6, "question", "some text here"])
+    test_data.append(['C.(F)', 0.7, "question", "some text here"])
 
-    # Check that duplicate top values are filtered and the cosine distance is the minimum
-    test_data.append(['A.1(A)(i)(a)', 0.2, "question", "some text here"])
     df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 1
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[0]["cosine_distance"] == 0.1
-    # Check that the top and mode results are returned and the mode value is the lowest distance
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.3, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 2
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[1]["cosine_distance"] == 0.2 # Note the order of the search_section is preserved so the mode should be second
-    assert df_filtered_test_data.iloc[1]["count"] == 2
+    df_capped_test_data = data.cap_rag_section_token_length(df_test_data, 10000)
+    assert len(df_capped_test_data) == 5 # hard cap in function
 
-    # Check if there are no duplicate indexes that we still return multiple sections
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 2
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[0]["section_reference"] == 'A.1(A)(i)(a)'
-    assert df_filtered_test_data.iloc[0]["cosine_distance"] == 0.1
-    assert df_filtered_test_data.iloc[1]["section_reference"] == 'A.1(A)(i)(b)'
-    assert df_filtered_test_data.iloc[1]["cosine_distance"] == 0.2
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 3
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[0]["section_reference"] == 'A.1(A)(i)(a)'
-    assert df_filtered_test_data.iloc[0]["cosine_distance"] == 0.1
-    assert df_filtered_test_data.iloc[1]["section_reference"] == 'A.1(A)(i)(b)'
-    assert df_filtered_test_data.iloc[1]["cosine_distance"] == 0.2
-    assert df_filtered_test_data.iloc[2]["section_reference"] == 'A.1(A)(i)(c)'
-    assert df_filtered_test_data.iloc[2]["cosine_distance"] == 0.3
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(d)', 0.3, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 3
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[0]["section_reference"] == 'A.1(A)(i)(a)'
-    assert df_filtered_test_data.iloc[0]["cosine_distance"] == 0.1
-    assert df_filtered_test_data.iloc[1]["section_reference"] == 'A.1(A)(i)(b)'
-    assert df_filtered_test_data.iloc[1]["cosine_distance"] == 0.2
-    assert df_filtered_test_data.iloc[2]["section_reference"] == 'A.1(A)(i)(c)'
-    assert df_filtered_test_data.iloc[2]["cosine_distance"] == 0.3
+    df_capped_test_data = data.cap_rag_section_token_length(df_test_data, 100) # first entry has more that 100
+    assert len(df_capped_test_data) == 1 
 
-
-    # My logic should exclude the second most likely search item
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.4, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 2
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[1]["cosine_distance"] == 0.3
-    # mode plus replete
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.4, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.5, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.6, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 3
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    assert df_filtered_test_data.iloc[1]["section_reference"] == "A.1(A)(i)(c)"
-    assert df_filtered_test_data.iloc[1]["cosine_distance"] == 0.3
-    assert df_filtered_test_data.iloc[1]["count"] == 3
-    assert df_filtered_test_data.iloc[2]["section_reference"] == "A.1(A)(i)(b)"
-    assert df_filtered_test_data.iloc[2]["cosine_distance"] == 0.2
-    assert df_filtered_test_data.iloc[2]["count"] == 2
-
-    # mode plus two repletes
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(d)', 0.35, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(e)', 0.375, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.4, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.5, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.6, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(d)', 0.7, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 4
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-    # Note the order of the search_section is preserved so the mode should be second
-    assert df_filtered_test_data.iloc[3]["section_reference"] == "A.1(A)(i)(d)"
-    assert df_filtered_test_data.iloc[3]["cosine_distance"] == 0.35
-    # no unique mode
-    test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(c)', 0.5, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(b)', 0.6, "question", "some text here"])
-    test_data.append(['A.1(A)(i)(d)', 0.7, "question", "some text here"])
-    df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-    df_filtered_test_data = data.filter_relevant_sections(df_test_data)
-    assert len(df_filtered_test_data) == 3
-    assert set(df_filtered_test_data.columns.to_list()) == set(output_columns)
-
-# def test_cap_rag_section_token_length():
-#     data = src.data.load_data_from_folders(chat_for_ad = True, base_directory = ".", embeddings_directory = "") 
-#     test_data = []
-#     test_data.append(['B.2(C)(ii)', 0.1, "question", "some text here"])
-#     test_data.append(['B.2(C)(i)(a)', 0.2, "question", "some text here"])
-#     test_data.append(['B.2(B)(i)', 0.3, "question", "some text here"])
-#     test_data.append(['E.(D)', 0.5, "question", "some text here"])
-#     test_data.append(['B.2(F)', 0.6, "question", "some text here"])
-#     test_data.append(['G.(C)', 0.7, "question", "some text here"])
-
-#     df_test_data = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
-#     df_capped_test_data = data.cap_rag_section_token_length(df_test_data, 10000)
-#     assert len(df_capped_test_data) == 5 # hard cap in function
-
-#     df_capped_test_data = data.cap_rag_section_token_length(df_test_data, 1000) # first entry has more that 1000
-#     assert len(df_capped_test_data) == 1 
-
-#     df_capped_test_data = data.cap_rag_section_token_length(df_test_data, 2000)
-#     assert len(df_capped_test_data) == 2
+    df_capped_test_data = data.cap_rag_section_token_length(df_test_data, 300)
+    assert len(df_capped_test_data) == 3
     

@@ -37,6 +37,8 @@ def check_columns(relevant_sections):
     return True
 
 def rerank(relevant_sections, rerank_algo):
+    if not check_columns(relevant_sections):
+        raise AttributeError("The dataframe to rerank does not have the correct columns")
     if rerank_algo == RerankAlgos.NONE:
          logger.log(DEV_LEVEL, f"No re-ranking of the relevant sections")
          return relevant_sections
