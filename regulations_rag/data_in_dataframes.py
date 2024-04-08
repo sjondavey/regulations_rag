@@ -338,7 +338,7 @@ def create_test_data():
     path_to_index_as_parquet_file = "./test/inputs/index.parquet"
     path_to_additional_manual_as_csv_file = ""
     path_to_additional_definitions_as_parquet_file = ""
-    path_to_additional_index_as_parquet_file = ""
+    path_to_additional_index_as_parquet_file = "./test/inputs/index_plus.parquet"
     path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
 
     decryption_key = os.getenv('excon_encryption_key')

@@ -1,3 +1,4 @@
+import os
 import logging
 import pandas as pd
 
@@ -77,6 +78,13 @@ def test_append_parquet_data():
     df_text_all = append_parquet_data("./test/inputs/definitions_plus.parquet", df_text_all)
     assert len(df_text_all) > l
     assert not df_text_all.isna().any().any()
+
+    key = key = os.getenv('excon_encryption_key')
+    df_index = load_parquet_data("./test/inputs/index.parquet", key)
+    assert df_index.iloc[0]['text'] == 'Export of gold jewellery by manufacturing jewellers' # check it is decrypted
+    df_index_plus = append_parquet_data("./test/inputs/index.parquet", df_index, key)
+    assert df_index_plus.iloc[-1]['text'] == 'Applications for the importation of gold' # check it is decrypted
+
 
 def test_load_data():
 
