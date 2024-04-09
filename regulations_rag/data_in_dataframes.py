@@ -15,6 +15,29 @@ logger = logging.getLogger(__name__)
 DEV_LEVEL = 15
 logging.addLevelName(DEV_LEVEL, 'DEV')       
 
+# NOTE: There required columns include columns that are only used for logging, There variables are in the class. The are stored as:
+# self.index_columns = required_columns_index 
+# self.definition_columns = required_columns_definition
+# self.workflow_columns = required_columns_workflow
+# self.regulation_columns =  required_columns_regulation
+
+required_columns_definition = ["definition", "embedding", "source"]
+required_columns_index = ["section_reference", "text", "source", "embedding"]
+required_columns_workflow = ["workflow", "text", "embedding"]
+
+required_columns_regulation = ["indent", "reference", "text", "heading", "section_reference", "word_count"]
+''' 
+"indent" number of spaces (mod 4 perhaps) from the start of the line to the lines reference. This helps identify when (i) is a letter or a Roman Numeral for example, 
+"reference" the lines reference. this is typically on part of the full "section_reference"
+"text" the content of the line once the "reference" has been stripped out
+"heading" boolean to flag if the text is a (sub)section heading, 
+"section_reference" the full reference which starts at the root and includes the lines "reference" 
+"word_count"
+Optional
+ "document", "page",
+'''
+required_columns_section_lookup = ["section_reference", "cosine_distance", "count", "regulation_text", "token_count"]
+
 class DataInDataFrames(Data):
     """
     A class to handle and provide relevant sections, definitions, and workflow from the Currency and Exchange Manuals
@@ -51,7 +74,11 @@ class DataInDataFrames(Data):
         Feel free to override them if you need to have additional information in any step
         '''
         super()._set_required_column_headings()
-        self.index_columns = ["section_reference", "embedding", "text", "source"] # I want more info for logging / debugging
+        # I want more info for logging / debugging
+        self.index_columns = required_columns_index 
+        self.definition_columns = required_columns_definition
+        self.workflow_columns = required_columns_workflow
+        self.regulation_columns =  required_columns_regulation
 
 
 
@@ -180,7 +207,7 @@ class DataInDataFrames(Data):
 
         else:
             logger.log(DEV_LEVEL, "--   No relevant sections found")
-            relevant_sections = pd.DataFrame([], columns = ["section_reference", "cosine_distance", "count", "regulation_text", "token_count"])
+            relevant_sections = pd.DataFrame([], columns = required_columns_section_lookup)
 
         return relevant_sections
 
@@ -205,7 +232,7 @@ class DataInDataFrames(Data):
         if len(self.workflow) > 0:
             return get_closest_nodes(self.workflow, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)
         else:
-            return pd.DataFrame([], columns = ["workflow", "text", "embedding"])
+            return pd.DataFrame([], columns = required_columns_workflow)
 
 def load_csv_data(path_to_file):
     """
@@ -301,7 +328,7 @@ def load_data_from_files(
     df_regulations = append_csv_data(path_to_additional_manual_as_csv_file, df_regulations)
 
     if path_to_definitions_as_parquet_file == "":
-        df_definitions = pd.DataFrame([],columns = ["definition", "embedding", "source"])    
+        df_definitions = pd.DataFrame([],columns = required_columns_definition)    
     df_definitions = load_parquet_data(path_to_definitions_as_parquet_file)
     df_definitions = append_parquet_data(path_to_additional_definitions_as_parquet_file, df_definitions)
 
@@ -310,7 +337,7 @@ def load_data_from_files(
     df_index = append_parquet_data(path_to_additional_index_as_parquet_file, df_index, decryption_key)
 
     if workflow_as_parquet_file == "":
-        df_workflow = pd.DataFrame([],columns = ["section_reference", "text", "source", "embedding"])    
+        df_workflow = pd.DataFrame([],columns = required_columns_workflow)    
     else:
         df_workflow = load_parquet_data(workflow_as_parquet_file)
 
@@ -371,14 +398,11 @@ class EmbeddingParameters:
         if embedding_model == "text-embedding-ada-002":
             self.threshold = 0.15
             self.dimensions = 1536 # this model does not 
-            self.folder = "/ada_v2" # The folder variable is used for testing 
         elif embedding_model == "text-embedding-3-large":
             if embedding_dimensions == 1024:
                 self.threshold = 0.38
-                self.folder = "/v3_large/1024"
             elif embedding_dimensions == 3072:
                 self.threshold = 0.40
-                self.folder = "/v3_large/3072"
         else:
             raise ValueError("Unknown Embedding model or embedding dimension")
 
