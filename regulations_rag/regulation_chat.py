@@ -10,11 +10,11 @@ from enum import Enum
 
 # import src.data
 # importlib.reload(src.data)
-from regulations_rag.data import Data, EmbeddingParameters, ChatParameters
+from regulations_rag.regulation_index import RegulationIndex, EmbeddingParameters
 
 from regulations_rag.string_tools import match_strings_to_reference_list
 
-from regulations_rag.reg_tools import get_regulation_detail, get_regulation_heading
+from regulations_rag.regulation_reader import RegulationReader
                            
 from regulations_rag.embeddings import get_ada_embedding, \
                            get_closest_nodes, \
@@ -45,6 +45,21 @@ logging.addLevelName(ANALYSIS_LEVEL, 'ANALYSIS')
 ###############################################
 
 
+class ChatParameters:
+    def __init__(self, chat_model, temperature, max_tokens):
+        self.model = chat_model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        self.tested_models = ["gpt-3.5-turbo", "gpt-4", "gpt-3.5-turbo-16k"]
+        untested_models = ["gpt-4-1106-preview", "gpt-4-0125-preview"]
+        if self.model not in self.tested_models:
+            if self.model not in untested_models:
+                raise ValueError("You are attempting to use a model that does not seem to exist")
+            else: 
+                logger.info("You are attempting to use a model that has not been tested")
+
+
 class RegulationChat():
     class State(Enum):
         RAG = "rag"
@@ -69,7 +84,8 @@ class RegulationChat():
                  openai_client, 
                  embedding_parameters,
                  chat_parameters,
-                 data,
+                 regulation_reader,
+                 regulation_index,
                  rerank_algo = RerankAlgos.NONE,   
                  user_name_for_logging = 'test_user'): 
 
@@ -77,7 +93,8 @@ class RegulationChat():
         self.openai_client = openai_client
         self.embedding_parameters = embedding_parameters
         self.chat_parameters = chat_parameters
-        self.data = data      
+        self.reader = regulation_reader
+        self.index = regulation_index
         self.rerank_algo = rerank_algo
         self.reset_conversation_history()
 
@@ -163,10 +180,10 @@ class RegulationChat():
                     logger.info(f"System requested for more info:\n{response}")
                     # Asking for an invalid section or a section that is already in the RAG
                     force = False
-                    if not self.data.section_reference_checker.is_valid(response):
+                    if not self.reader.reference_checker.is_valid(response):
                         logger.info(f"But \n{response} is not a valid reference, so now forcing the system to answer or opt out")
                         force = True
-                    if self.data.section_reference_checker.is_reference_or_parents_in_list(response, df_search_sections["section_reference"].tolist()):
+                    if self.reader.reference_checker.is_reference_or_parents_in_list(response, df_search_sections["section_reference"].tolist()):
                         logger.info(f"But \n{response} is already in the RAG data, so now forcing the system to answer or opt out")
                         force = True
 
@@ -220,7 +237,7 @@ class RegulationChat():
 
     def add_section_to_resource(self, section_to_add, df_search_sections):
         # Step 1) confirm it is requesting something that passes validation
-        modified_section_to_add = self.data.section_reference_checker.extract_valid_reference(section_to_add)
+        modified_section_to_add = self.reader.reference_checker.extract_valid_reference(section_to_add)
         
         if modified_section_to_add is None:
             logger.info(f"Tried to add {section_to_add} the Valid_Index object could not extract a valid reference from this")
@@ -318,11 +335,11 @@ class RegulationChat():
         """
         short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
         if number_of_options == 2:
-            return f"You are answering questions for an {self.data.user_type} based only on the sections from the South African Exchange Control Manual that are provided. Please use the manual's index pattern when referring to sections: {short_pattern}. You have two options:\n\
+            return f"You are answering questions for an {self.index.user_type} based only on the sections from the South African Exchange Control Manual that are provided. Please use the manual's index pattern when referring to sections: {short_pattern}. You have two options:\n\
 1) Answer the question. Preface an answer with the tag '{RegulationChat.Prefix.ANSWER.value}'. End the answer with 'Reference: ' and a comma separated list of the section you used to answer the question if you used any.\n\
 2) State '{RegulationChat.Prefix.NONE.value}' and nothing else if you cannot answer the question with the resources provided\n\n\""
 
-        return f"You are answering questions for an {self.data.user_type} based only on the sections from the South African Exchange Control Manual that are provided. Please use the manual's index pattern when referring to sections: {short_pattern}. You have three options:\n\
+        return f"You are answering questions for an {self.index.user_type} based only on the sections from the South African Exchange Control Manual that are provided. Please use the manual's index pattern when referring to sections: {short_pattern}. You have three options:\n\
 1) Answer the question. Preface an answer with the tag '{RegulationChat.Prefix.ANSWER.value}'. End the answer with 'Reference: ' and a comma separated list of the section you used to answer the question if you used any.\n\
 2) Request additional documentation. If, in the body of the sections provided, there is a reference to another section of the Manual that is directly relevant and not already provided, respond with the word '{RegulationChat.Prefix.SECTION.value}' followed by the full section reference.\n\
 3) State '{RegulationChat.Prefix.NONE.value}' and nothing else in all other cases\n\n\""
@@ -505,8 +522,8 @@ class RegulationChat():
         """
         question_embedding = get_ada_embedding(self.openai_client, user_content, self.embedding_parameters.model, self.embedding_parameters.dimensions)        
         logger.log(DEV_LEVEL, "#################   Similarity Search       #################")
-        if len(self.data.workflow) > 0:
-            relevant_workflows = self.data.get_relevant_workflow(user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        if len(self.index.workflow) > 0:
+            relevant_workflows = self.index.get_relevant_workflow(user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
             if not relevant_workflows.empty > 0:
                 # relevant_workflows is sorted in the get_closest_nodes method
                 most_relevant_workflow_score = relevant_workflows.iloc[0]['cosine_distance']
@@ -520,7 +537,7 @@ class RegulationChat():
             most_relevant_workflow_score = 1.0
             workflow_triggered = "none"
 
-        relevant_definitions = self.data.get_relevant_definitions(user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        relevant_definitions = self.index.get_relevant_definitions(user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
         if not relevant_definitions.empty:
 
             most_relevant_definition_score = relevant_definitions.iloc[0]['cosine_distance']
@@ -530,7 +547,7 @@ class RegulationChat():
                 workflow_triggered = "none"        
 
 
-        relevant_sections = self.data.get_relevant_sections(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        relevant_sections = self.index.get_relevant_sections(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
         if not relevant_sections.empty:    
         
             if not relevant_sections.empty:    
@@ -545,13 +562,13 @@ class RegulationChat():
 
 
     def get_regulation_detail(self, node_str):
-        valid_reference = self.data.section_reference_checker.extract_valid_reference(node_str)
+        valid_reference = self.reader.reference_checker.extract_valid_reference(node_str)
         if not valid_reference:
             return "The reference did not conform to this documents standard"
         else:
             if valid_reference != node_str:
                 logger.info(f"The string {node_string} is not a valid index. Defaulting to {valid_reference}")
-            return get_regulation_detail(valid_reference, self.data.regulations, self.data.section_reference_checker)
+            return self.reader.get_regulation_detail(valid_reference)
 
     def _truncate_message_list(self, system_message, message_list, token_limit=2000):
         """
@@ -623,7 +640,7 @@ class RegulationChat():
         unique_references = match_strings_to_reference_list(cleaned_references, sections_in_rag)
 
         # Get headings for matched references
-        reference_headings = [get_regulation_heading(ref, self.data.regulations, self.data.section_reference_checker) for ref in unique_references]
+        reference_headings = [self.reader.get_regulation_heading(ref) for ref in unique_references]
 
         # Reconstruct the answer with reformatted references
         answer_base = raw_response.split("Reference:")[0].strip()

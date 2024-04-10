@@ -3,7 +3,6 @@ import logging
 from enum import Enum
 from collections import Counter
 
-from regulations_rag.reg_tools import get_regulation_detail
 from regulations_rag.string_tools import match_strings_to_reference_list
 
 

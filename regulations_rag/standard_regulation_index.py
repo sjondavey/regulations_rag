@@ -3,11 +3,11 @@ import os
 import pandas as pd
 from cryptography.fernet import Fernet
 
-from regulations_rag.data import Data
+from regulations_rag.regulation_index import RegulationIndex
 
-from regulations_rag.section_reference_checker import SectionReferenceChecker
+from regulations_rag.reference_checker import ReferenceChecker
 from regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
-from regulations_rag.reg_tools import get_regulation_detail
+from regulations_rag.regulation_reader import RegulationReader
 from regulations_rag.rerank import RerankAlgos, rerank
 
 # Create a logger for this module
@@ -38,22 +38,18 @@ Optional
 '''
 required_columns_section_lookup = ["section_reference", "cosine_distance", "count", "regulation_text", "token_count"]
 
-class DataInDataFrames(Data):
+class StandardRegulationIndex(RegulationIndex):
     """
     A class to handle and provide relevant sections, definitions, and workflow from the Currency and Exchange Manuals
     based on the user's content using embeddings and thresholds for similarity.
     """    
-    def __init__(self, user_type, regulation_name, section_reference_checker, df_regulations, df_definitions, df_index, df_workflow):
+    def __init__(self, user_type, regulation_name, regulation_reader, df_definitions, df_index, df_workflow):
         """
         Parameters:
         -----------
-        user_type : str
-            Used in the LLM system prompt to tell the model who they are assisting
-        regulation_name : str
-            Used in the LLM system prompt to tell the model what document they will be answering questions on
-        section_reference_checker : Section_Reference_Checker
+        reference_checker : ReferenceChecker
             Used to check and extract section references that will be used to request the regulation extracts
-        df_regulations : DataFrame
+        regulation_reader : RegulationReader
             DataFrame containing regulation content so we can find sections.
         df_definitions : DataFrame
             DataFrame containing definitions from the manual. It must have columns ["definition", "embedding"]
@@ -62,24 +58,32 @@ class DataInDataFrames(Data):
         df_workflow : DataFrame
             DataFrame containing workflow information for the chat so we can change from RAG mode into something else
         """
-        self.regulations = df_regulations
         self.definitions = df_definitions
-        self.workflow = df_workflow
         self.index = df_index
-        super().__init__(user_type = user_type, regulation_name = regulation_name, section_reference_checker = section_reference_checker)
+        self.workflow = df_workflow
+        super().__init__(user_type = user_type, regulation_name = regulation_name, regulation_reader = regulation_reader)
+        self._set_required_column_headings()
+        self._check_definitions_column_headings()
+        self._check_index_column_headings()
+        self._check_workflow_column_headings()
+
+
 
     def _set_required_column_headings(self):
         '''
         These are the minimum required column headings and should be used in the _check*_column_headings() methods. 
         Feel free to override them if you need to have additional information in any step
         '''
-        super()._set_required_column_headings()
-        # I want more info for logging / debugging
+        # These include columns that are only used for logging and debugging
         self.index_columns = required_columns_index 
         self.definition_columns = required_columns_definition
         self.workflow_columns = required_columns_workflow
-        self.regulation_columns =  required_columns_regulation
 
+
+    def _check_df_columns(self, actual_column_headings, expected_columns_as_list, data_source_name):
+        for column in expected_columns_as_list:
+            if column not in expected_columns_as_list:
+                raise AttributeError(f"Column {column} should be in {data_source_name} but it is not")
 
 
     def _get_definitions_column_headings(self):
@@ -87,24 +91,31 @@ class DataInDataFrames(Data):
             return self.definitions.columns.to_list()
         return []
 
+    def _check_definitions_column_headings(self):
+        actual_column_headings = self._get_definitions_column_headings()
+        if actual_column_headings != []:
+            self._check_df_columns(actual_column_headings, self.definition_columns, "definitions")
+
     def _get_index_column_headings(self):
         if not self.index.empty:
             return self.index.columns.to_list()
         return []
 
+    def _check_index_column_headings(self):
+        actual_column_headings = self._get_index_column_headings()
+        if actual_column_headings != []:
+            self._check_df_columns(actual_column_headings, self.index_columns, "index")
+
     def _get_workflow_column_headings(self):
         if not self.workflow.empty:
-            return self.index.workflow.to_list()
+            return self.workflow.columns.to_list()
         return []
 
-    def _get_regulations_column_headings(self):
-        if not self.regulations.empty:
-            return self.regulations.columns.to_list()
-        return []
+    def _check_workflow_column_headings(self):
+        actual_column_headings = self._get_workflow_column_headings()
+        if actual_column_headings != []:
+            self._check_df_columns(actual_column_headings, self.workflow_columns, "workflow")
 
-    def get_regulation_detail(self, section_index):
-        raise NotImplementedError()
-    
 
 
     def get_relevant_definitions(self, user_content_embedding, threshold):
@@ -138,7 +149,7 @@ class DataInDataFrames(Data):
     def cap_rag_section_token_length(self, relevant_sections, capped_number_of_tokens):
         #relevant_sections["section_reference"] = relevant_sections["section_reference"]
         relevant_sections["regulation_text"] = relevant_sections["section_reference"].apply(
-            lambda x: get_regulation_detail(x, self.regulations, self.section_reference_checker)
+            lambda x: self.regulation_reader.get_regulation_detail(x)
         )        
         relevant_sections["token_count"] = relevant_sections["regulation_text"].apply(num_tokens_from_string)
 
@@ -345,7 +356,7 @@ def load_data_from_files(
 
 def create_test_data():
     """
-    Creates and returns a SectionReferenceChecker instance used for testing.
+    Creates and returns a ReferenceChecker instance used for testing.
     """
     exclusion_list = ['Legal context', 'Introduction']
     index_patterns = [
@@ -358,7 +369,7 @@ def create_test_data():
     ]    
     text_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\((?:i|ii|iii|iv|v|vi)\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
 
-    section_reference_checker = SectionReferenceChecker(regex_list_of_indices=index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
+    reference_checker = ReferenceChecker(regex_list_of_indices=index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
 
     path_to_manual_as_csv_file = "./test/inputs/manual.csv"
     path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
@@ -380,50 +391,13 @@ def create_test_data():
     user_type = "Authorised Dealer (AD)" 
     regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
 
-    data = DataInDataFrames(user_type = user_type, 
+    data = StandardRegulationIndex(user_type = user_type, 
                             regulation_name = regulation_name, 
-                            section_reference_checker = section_reference_checker, 
+                            reference_checker = reference_checker, 
                             df_regulations = df_regulations, 
                             df_definitions = df_definitions, 
                             df_index = df_index, 
                             df_workflow = df_workflow)
     return data
 
-
-class EmbeddingParameters:
-    def __init__(self, embedding_model, embedding_dimensions):
-        self.model = embedding_model
-        self.dimensions = embedding_dimensions
-
-        if embedding_model == "text-embedding-ada-002":
-            self.threshold = 0.15
-            self.dimensions = 1536 # this model does not 
-        elif embedding_model == "text-embedding-3-large":
-            if embedding_dimensions == 1024:
-                self.threshold = 0.38
-            elif embedding_dimensions == 3072:
-                self.threshold = 0.40
-        else:
-            raise ValueError("Unknown Embedding model or embedding dimension")
-
-
-class ChatParameters:
-    def __init__(self, chat_model, temperature, max_tokens):
-        self.model = chat_model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-
-        self.tested_models = ["gpt-3.5-turbo", "gpt-4", "gpt-3.5-turbo-16k"]
-        untested_models = ["gpt-4-1106-preview", "gpt-4-0125-preview"]
-        if self.model not in self.tested_models:
-            if self.model not in untested_models:
-                raise ValueError("You are attempting to use a model that does not seem to exist")
-            else: 
-                logger.info("You are attempting to use a model that has not been tested")
-
-def load_embedding_parameters(embedding_model, embedding_dimensions):
-    return EmbeddingParameters(embedding_model, embedding_dimensions)
-
-def load_chat_parameters(model_to_use, temperature, max_tokens):
-    return ChatParameters(model_to_use, temperature, max_tokens)
 

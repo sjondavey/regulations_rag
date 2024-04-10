@@ -1,6 +1,6 @@
 import re
 
-class SectionReferenceChecker:
+class ReferenceChecker:
     """
     A helper class for managing and validating legal document section references in a tree structure format.
     
@@ -194,44 +194,6 @@ class SectionReferenceChecker:
         return any(parent in list_of_references for parent in parents)
 
 
-    def parse_line_of_text(self, line_of_text):
-        """
-        Parses a line of text to extract the indent level (as a multiple of 4 spaces), the index, and the remaining text.
-        Validates the indent level and ensures the extracted index matches the expected regex pattern based on the indent level.
-
-        Parameters:
-            line_of_text (str): The line of text to be parsed.
-
-        Returns:
-            tuple: A tuple containing the indent level (number of spaces at the start of the line modulo 4), the index (if any), and the remaining text.
-
-        Raises:
-            ValueError: If the indent is not a multiple of 4, if the index is not appropriate for the indent level,
-                        or if the index does not match the expected regex pattern.
-        """
-        stripped_line = line_of_text.lstrip(' ')
-        indent = len(line_of_text) - len(stripped_line)
-        if indent % 4 != 0:
-            raise ValueError(f"This line does not have an indent which is a multiple of 4: {line_of_text}")
-        indent = indent // 4
-
-        index, remaining_text = self._extract_reference_from_string(stripped_line)
-
-        if index: 
-            if index in self.exclusion_list:
-                if indent != 0:
-                    raise ValueError(f"This line has {indent} indent(s) but should have zero because the index is on the exclusion list")
-                return indent, index, remaining_text
-
-            if indent >= len(self.index_patterns):
-                raise ValueError(f"This line has too many indents and cannot be compared against a Valid Index: {line_of_text}")
-
-            expected_pattern = self.index_patterns[indent]
-            match = re.match(expected_pattern, index)
-            if not match:
-                raise ValueError(f"This line has {indent} indent(s) and its index should match a regex pattern {expected_pattern} but it does not: {line_of_text}")
-
-        return indent, index, remaining_text
 
     def _extract_reference_from_string(self, s):
         """
@@ -268,4 +230,20 @@ class SectionReferenceChecker:
         # If no match is found, return an empty string for the index and the original string
         return '', s
 
+
+
+class TESTReferenceChecker(ReferenceChecker):
+    def __init__(self):
+        cemad_exclusion_list = ['Legal context', 'Introduction']
+        cemad_index_patterns = [
+            r'^[A-Z]\.\d{0,2}',             # Matches capital letter followed by a period and up to two digits.
+            r'^\([A-Z]\)',                  # Matches single capital letters within parentheses.
+            r'^\((i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv|xvi|xvii|xviii|xix|xx|xxi|xxii|xxiii|xxiv|xxv|xxvi|xxvii)\)', # Matches Roman numerals within parentheses.
+            r'^\([a-z]\)',                  # Matches single lowercase letters within parentheses.
+            r'^\([a-z]{2}\)',               # Matches two lowercase letters within parentheses.
+            r'^\((?:[1-9]|[1-9][0-9])\)',   # Matches numbers within parentheses, excluding leading zeros.
+        ]    
+        text_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\((?:i|ii|iii|iv|v|vi)\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+
+        super().__init__(regex_list_of_indices = cemad_index_patterns, text_version = text_pattern, exclusion_list=cemad_exclusion_list)
 
