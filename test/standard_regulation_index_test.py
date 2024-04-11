@@ -3,8 +3,8 @@ import logging
 import pandas as pd
 
 from regulations_rag.reference_checker import TESTReferenceChecker
-from regulations_rag.regulation_reader import TESTReader
-from regulations_rag.standard_regulation_index import StandardRegulationIndex, load_csv_data, append_csv_data, load_parquet_data, append_parquet_data, load_data_from_files
+from regulations_rag.regulation_reader import TESTReader, load_regulation_data_from_files, load_csv_data, append_csv_data
+from regulations_rag.standard_regulation_index import StandardRegulationIndex, load_parquet_data, append_parquet_data, load_index_data_from_files
 
 
 
@@ -83,25 +83,21 @@ def test_load_data():
     path_to_additional_index_as_parquet_file = ""
     path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
 
-    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
-                                path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
+    df_definitions, df_index, df_workflow = load_index_data_from_files(
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)
 
-    l_r = len(df_regulations)
     l_d = len(df_definitions)
     l_i = len(df_index)
 
     path_to_additional_manual_as_csv_file = ""
     path_to_additional_definitions_as_parquet_file = "./test/inputs/definitions_plus.parquet"
     path_to_additional_index_as_parquet_file = ""
-    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
-                                path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
+    df_definitions, df_index, df_workflow = load_index_data_from_files(
                                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                                 path_to_workflow_as_parquet)
-    assert len(df_regulations) == l_r
     assert len(df_definitions) > l_d
     assert len(df_index) == l_i
 
@@ -117,8 +113,9 @@ def test_cap_rag_section_token_length():
     path_to_additional_index_as_parquet_file = ""
     path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
 
-    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
-                                path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
+    df_regulations = load_regulatory_data_from_files(path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file)
+
+    df_definitions, df_index, df_workflow = load_index_data_from_files(
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)

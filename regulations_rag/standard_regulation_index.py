@@ -238,51 +238,6 @@ class StandardRegulationIndex(RegulationIndex):
         else:
             return pd.DataFrame([], columns = required_columns_workflow)
 
-def load_csv_data(path_to_file):
-    """
-    Loads data from a CSV file, ensuring no NaN values are present.
-
-    Parameters:
-    -----------
-    path_to_file : str
-        The path to the CSV file to be loaded.
-
-    Returns:
-    --------
-    df : DataFrame
-        The loaded DataFrame if the file exists and contains no NaN values.
-
-    Raises:
-    -------
-    FileNotFoundError:
-        If the specified file does not exist.
-    ValueError:
-        If the loaded DataFrame contains NaN values.
-    """
-    if not os.path.exists(path_to_file):
-        msg = f"Could not find the file {path_to_file}"
-        logger.error(msg)
-        raise FileNotFoundError(msg)
-
-    df = pd.read_csv(path_to_file, sep="|", encoding="utf-8", na_filter=False)  
-
-    # Check for NaN values in the DataFrame
-    if df.isna().any().any():
-        msg = f'Encountered NaN values while loading {path_to_file}. This will cause ugly issues with the get_regulation_detail method'
-        logger.error(msg)
-        raise ValueError(msg)
-    return df
-
-def append_csv_data(path_to_file, original_df):
-    if path_to_file == "":
-        return original_df
-
-    tmp = load_csv_data(path_to_file)
-    # data in the "_plus.csv" file contains an additional column "sections_referenced" which is only used to identify the rows that need to be updated when the manual changes
-    if "sections_referenced" in tmp.columns:
-        tmp.drop("sections_referenced", axis=1, inplace=True)
-
-    return pd.concat([original_df, tmp], ignore_index = True)
 
 
 def load_parquet_data(path_to_file, decryption_key = ""):
@@ -321,15 +276,11 @@ def append_parquet_data(path_to_file, original_df, decryption_key = ""):
     return pd.concat([original_df, tmp], ignore_index = True)
 
 
-def load_data_from_files(
-              path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
+def load_index_data_from_files(
               path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
               path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
               workflow_as_parquet_file = "",
               decryption_key = ""):
-
-    df_regulations = load_csv_data(path_to_manual_as_csv_file)
-    df_regulations = append_csv_data(path_to_additional_manual_as_csv_file, df_regulations)
 
     if path_to_definitions_as_parquet_file == "":
         df_definitions = pd.DataFrame([],columns = required_columns_definition)    
@@ -345,7 +296,7 @@ def load_data_from_files(
     else:
         df_workflow = load_parquet_data(workflow_as_parquet_file)
 
-    return df_regulations, df_definitions, df_index, df_workflow
+    return df_definitions, df_index, df_workflow
 
 def create_test_data():
     """
@@ -374,12 +325,12 @@ def create_test_data():
 
     decryption_key = os.getenv('excon_encryption_key')
 
-    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
-                                path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file, 
+    df_definitions, df_index, df_workflow = load_index_data_from_files(
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet,
                                 decryption_key=decryption_key)
+    df_regulations = load_regulation_data_from_files(path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file)
 
     user_type = "Authorised Dealer (AD)" 
     regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"

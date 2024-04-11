@@ -4,11 +4,10 @@ import os
 from cryptography.fernet import Fernet
 
 from regulations_rag.reference_checker import TESTReferenceChecker
-from regulations_rag.regulation_reader import TESTReader
+from regulations_rag.regulation_reader import TESTReader, load_regulation_data_from_files
 from regulations_rag.regulation_chat import RegulationChat, ChatParameters
 from regulations_rag.regulation_index import  EmbeddingParameters
-from regulations_rag.standard_regulation_index import StandardRegulationIndex
-from regulations_rag.standard_regulation_index import load_data_from_files, StandardRegulationIndex, load_parquet_data, save_parquet_data
+from regulations_rag.standard_regulation_index import load_index_data_from_files, StandardRegulationIndex, load_parquet_data, save_parquet_data
 from regulations_rag.rerank import RerankAlgos
 
 
@@ -29,15 +28,16 @@ class TestRegulationChat:
 
     decryption_key = os.getenv('excon_encryption_key')
 
-    df_regulations, df_definitions, df_index, df_workflow = load_data_from_files(
-                                                                path_to_manual_as_csv_file = path_to_manual_as_csv_file, 
-                                                                path_to_additional_manual_as_csv_file = path_to_additional_manual_as_csv_file, 
+    df_definitions, df_index, df_workflow = load_index_data_from_files(
                                                                 path_to_definitions_as_parquet_file = path_to_definitions_as_parquet_file, 
                                                                 path_to_additional_definitions_as_parquet_file = path_to_additional_definitions_as_parquet_file, 
                                                                 path_to_index_as_parquet_file = path_to_index_as_parquet_file, 
                                                                 path_to_additional_index_as_parquet_file = path_to_additional_index_as_parquet_file,
                                                                 workflow_as_parquet_file = workflow_as_parquet_file,
                                                                 decryption_key=decryption_key )
+    df_regulations = load_regulation_data_from_files(
+                                                                path_to_manual_as_csv_file = path_to_manual_as_csv_file, 
+                                                                path_to_additional_manual_as_csv_file = path_to_additional_manual_as_csv_file)
 
     user_type = "Authorised Dealer (AD)" 
     regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
@@ -72,16 +72,6 @@ class TestRegulationChat:
                           regulation_index = index,
                           rerank_algo = rerank_algo,   
                           user_name_for_logging = 'test_user')
-
-    # path_to_manual_as_csv_file_regulation_chat_test = "./inputs_test/manual.csv"
-    # path_to_definitions_as_parquet_file_regulation_chat_test = "./inputs_test/definitions.parquet"
-    # path_to_index_as_parquet_file_regulation_chat_test = "./inputs_test/index.parquet"
-    # data_test = load_data_from_files(
-    #                                path_to_manual_as_csv_file_regulation_chat_test, "", 
-    #                                path_to_definitions_as_parquet_file_regulation_chat_test, "",
-    #                                path_to_index_as_parquet_file_regulation_chat_test, "")    
-    # regulation_chat_test = RegulationChat(openai_client, embedding_parameters, chat_parameters,  data_test)
-    # include_calls_to_api = True
 
 
     def test_construction(self):
