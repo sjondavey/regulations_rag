@@ -553,7 +553,10 @@ class RegulationChat():
                 workflow_triggered = "none"        
 
 
-        relevant_sections = self.index.get_relevant_sections(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        relevant_sections = self.index.get_relevant_sections(user_content = user_content, 
+                                                             user_content_embedding = question_embedding, 
+                                                             threshold = self.embedding_parameters.threshold, 
+                                                             rerank_algo = self.rerank_algo)
         if not relevant_sections.empty:    
         
             if not relevant_sections.empty:    

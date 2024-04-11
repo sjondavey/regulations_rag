@@ -64,7 +64,7 @@ def rerank(relevant_sections, rerank_algo):
         # relevant_sections = relevant_sections
     elif rerank_algo == RerankAlgos.MOST_COMMON:
         logger.log(DEV_LEVEL, f"Re-ranking using most_common")
-        relevant_sections = rerank_most_common(relevant_sections, initial_cap_sections=rerank_algo.params["initial_section_number_cap"], final_cap_tokens=rerank_algo.params["final_token_cap"])
+        relevant_sections = rerank_most_common(relevant_sections)
     elif rerank_algo == RerankAlgos.LLM:
         logger.log(DEV_LEVEL, f"Re-ranking using LLM")
         relevant_sections = rerank_llm(relevant_sections, openai_client = rerank_algo.params["openai_client"], model_to_use=rerank_algo.params["model_to_use"], user_question = rerank_algo.params["user_question"])
