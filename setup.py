@@ -15,6 +15,6 @@ requirements = parse_requirements('requirements.txt')
 
 setup(
     name='regulations_rag',
-    version='0.4.4',
+    version='0.4.5',
     install_requires=requirements,
 )
