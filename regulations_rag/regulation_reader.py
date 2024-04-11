@@ -5,6 +5,12 @@ from regulations_rag.reference_checker import ReferenceChecker
 
 import pandas as pd 
 
+# Create a logger for this module
+logger = logging.getLogger(__name__)
+DEV_LEVEL = 15
+logging.addLevelName(DEV_LEVEL, 'DEV')       
+
+
 class RegulationReader(ABC):
     def __init__(self, reference_checker):
         self.reference_checker = reference_checker
