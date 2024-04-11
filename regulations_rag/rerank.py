@@ -1,4 +1,5 @@
 import pandas as pd
+import copy
 import logging
 from enum import Enum
 from collections import Counter
@@ -11,9 +12,13 @@ logger = logging.getLogger(__name__)
 DEV_LEVEL = 15
 logging.addLevelName(DEV_LEVEL, 'DEV')       
 
+
+mandatory_columns = ["section_reference", "text", "source", "cosine_distance"] # input and output
 ''' 
-Functions that take an input DataFrame 'relevant_sections' with columns ["section_reference", "text", "source", "cosine_distance"] and 
-extracts a subset of these that are 'most relevant' to the user question
+Functions that take an input DataFrame 'relevant_sections' with columns "mandatory_columns" and 
+extracts a subset of these that are "most relevant" to the user question. Some of these functions may add columns to
+the input DataFrame to get their job done but you should not rely on this. You MUST assume the returned DataFrame 
+only contains the mandatory_columns
 '''
 
 class RerankAlgos(Enum):
@@ -26,28 +31,46 @@ class RerankAlgos(Enum):
         self.params = params
 
 
-mandatory_columns = ["section_reference", "text", "source", "cosine_distance"]
 
-def check_columns(relevant_sections):
-    dataframe_columns = relevant_sections.columns.to_list()
+def check_rerank_columns(dataframe):
+    dataframe_columns = dataframe.columns.to_list()
     for column in mandatory_columns:
         if column not in dataframe_columns:
             return False
     return True
 
 def rerank(relevant_sections, rerank_algo):
-    if not check_columns(relevant_sections):
+    ''' 
+    Parameters:
+    -----------
+    relevant_sections : DataFrame
+        Must contain the 'mandatory_columns'
+    rerank_algo : RerankAlgos
+        An enum that will define how the dataframe in re-ranked
+
+    Returns:
+        DataFrame that contains the "mandatory_columns". NOTE, some of the reranking algorithms may have additional columns 
+        but you should not rely on this. You MUST assume the returned DataFrame only contains the "mandatory_columns"
+    '''
+
+    if relevant_sections.empty:
+        return pd.DataFrame([], columns = mandatory_columns)
+
+    if not check_rerank_columns(relevant_sections):
         raise AttributeError("The dataframe to rerank does not have the correct columns")
+    
     if rerank_algo == RerankAlgos.NONE:
-         logger.log(DEV_LEVEL, f"No re-ranking of the relevant sections")
-         return relevant_sections
+        logger.log(DEV_LEVEL, f"No re-ranking of the relevant sections")
+        # relevant_sections = relevant_sections
     elif rerank_algo == RerankAlgos.MOST_COMMON:
-        return rerank_most_common(relevant_sections, initial_cap_sections=rerank_algo.params["initial_section_number_cap"], final_cap_tokens=rerank_algo.params["final_token_cap"])
+        logger.log(DEV_LEVEL, f"Re-ranking using most_common")
+        relevant_sections = rerank_most_common(relevant_sections, initial_cap_sections=rerank_algo.params["initial_section_number_cap"], final_cap_tokens=rerank_algo.params["final_token_cap"])
     elif rerank_algo == RerankAlgos.LLM:
-        return rerank_llm(relevant_sections, openai_client = rerank_algo.params["openai_client"], model_to_use=rerank_algo.params["model_to_use"], user_question = rerank_algo.params["user_question"])
+        logger.log(DEV_LEVEL, f"Re-ranking using LLM")
+        relevant_sections = rerank_llm(relevant_sections, openai_client = rerank_algo.params["openai_client"], model_to_use=rerank_algo.params["model_to_use"], user_question = rerank_algo.params["user_question"])
     else:        
         raise NotImplementedError()
-
+    
 
 def rerank_most_common(relevant_sections):
     """
@@ -63,11 +86,6 @@ def rerank_most_common(relevant_sections):
     - DataFrame: A dataframe with the selected references, their minimum cosine distances, and count.
     """
     
-    if relevant_sections.empty:
-        columns = mandatory_columns
-        columns.append("count")
-        return pd.DataFrame([], columns = mandatory_columns)
-
     search_sections = []
 
     # Top result
@@ -129,8 +147,6 @@ def rerank_most_common(relevant_sections):
 
 
 def rerank_llm(relevant_sections, openai_client, model_to_use, user_question):
-    if relevant_sections.empty:
-        return pd.DataFrame([], columns = ["section_reference", "text", "source", "cosine_distance", "count"])
 
     list_of_sections_and_text = []
     for index, row in relevant_sections.iterrows():

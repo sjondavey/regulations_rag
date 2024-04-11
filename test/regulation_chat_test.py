@@ -17,16 +17,6 @@ class TestRegulationChat:
     openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"),)
     chat_parameters = ChatParameters(chat_model = "gpt-3.5-turbo", temperature = 0, max_tokens = 500)
 
-    #embedding_parameters = EmbeddingParameters(embedding_model = "text-embedding-ada-002", embedding_dimensions = 1536)
-    # path_to_manual_as_csv_file = "./test/inputs/manual.csv"
-    # path_to_additional_manual_as_csv_file = "./test/inputs/manual_plus.csv"
-    # path_to_definitions_as_parquet_file = "./test/inputs/definitions.parquet"
-    # path_to_additional_definitions_as_parquet_file = "./test/inputs/definitions_plus.parquet"
-    # path_to_index_as_parquet_file = "./test/inputs/index.parquet"
-    # path_to_additional_index_as_parquet_file = ""
-    # workflow_as_parquet_file = "./test/inputs/workflow.parquet"
-
-
     embedding_parameters = EmbeddingParameters("text-embedding-3-large", 1024)
     path_to_manual_as_csv_file = "E:/Code/chat/cemad_rag/inputs/ad_manual.csv"
     path_to_additional_manual_as_csv_file = "E:/Code/chat/cemad_rag/inputs/ad_manual_plus.csv"
@@ -79,7 +69,9 @@ class TestRegulationChat:
                           embedding_parameters = embedding_parameters, 
                           chat_parameters = chat_parameters, 
                           regulation_reader = regulation_reader, 
-                          regulation_index = index)
+                          regulation_index = index,
+                          rerank_algo = rerank_algo,   
+                          user_name_for_logging = 'test_user')
 
     # path_to_manual_as_csv_file_regulation_chat_test = "./inputs_test/manual.csv"
     # path_to_definitions_as_parquet_file_regulation_chat_test = "./inputs_test/definitions.parquet"
@@ -275,16 +267,15 @@ class TestRegulationChat:
         dfns = []
         dfns.append("def1")
         dfns.append("def2")
-        df_definitions = pd.DataFrame(dfns, columns = ["Definition"])
+        df_definitions = pd.DataFrame(dfns, columns = ["definition"])
         sections = []
-        sections.append("A.1(A)(i)(aa)")
-        sections.append("B.2(B)(ii)(bb)")
-        df_search_sections = pd.DataFrame(sections, columns = ["regulation_text"])
+        sections.append("Z.1(B)(i)(a)")
+        sections.append("Z.2(A)(i)")
+        df_search_sections = pd.DataFrame(sections, columns = ["section_reference"])
         question = "user asks question"
         output_string = self.chat._add_rag_data_to_question(question, df_definitions, df_search_sections)
 
-        expected_text = f"Question: {question}\n\nDefinitions from the Manual\ndef1\ndef2\n\
-Sections from the Manual\nA.1(A)(i)(aa)\nB.2(B)(ii)(bb)\n"
+        expected_text = f"Question: user asks question\n\nDefinitions from the Manual\ndef1\ndef2\nSections from the Manual\nZ.1 References\n    (B) Travel\n        (i) Summary Travel Rules\n            (a) There is no limit on the amount of Rand that may be spent on travelling within the Common Monetary Area (CMA) - B.4(B)(i)\nZ.2 Metadata\n    (A) Version\n        (i) Version 1.92 of the Currency and Exchanges Manual for Authorised Dealers dated 2024-01-26\n"
 
         assert output_string == expected_text
 

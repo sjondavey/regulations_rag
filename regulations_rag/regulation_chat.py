@@ -359,10 +359,16 @@ class RegulationChat():
         Returns:
         - str: The question appended with definitions and sections from the Manual.
         """
+
         user_content = f'Question: {question}\n\n'
         if not df_definitions.empty:
-            definitions_content = "Definitions from the Manual\n" + "\n".join(df_definitions['Definition']) + "\n"
+            definitions_content = "Definitions from the Manual\n" + "\n".join(df_definitions['definition']) + "\n"
             user_content += definitions_content
+
+        df_search_sections["regulation_text"] = df_search_sections["section_reference"].apply(
+            lambda x: self.reader.get_regulation_detail(x)
+        )        
+        #df_search_sections["regulation_text"] = self.reader.get_regulation_detail(df_search_sections["section_reference"])        
 
         if not df_search_sections.empty:
             sections_content = "Sections from the Manual\n" + "\n".join(df_search_sections['regulation_text']) + "\n"

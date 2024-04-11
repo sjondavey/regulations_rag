@@ -25,17 +25,7 @@ required_columns_definition = ["definition", "embedding", "source"]
 required_columns_index = ["section_reference", "text", "source", "embedding"]
 required_columns_workflow = ["workflow", "text", "embedding"]
 
-required_columns_regulation = ["indent", "reference", "text", "heading", "section_reference", "word_count"]
-''' 
-"indent" number of spaces (mod 4 perhaps) from the start of the line to the lines reference. This helps identify when (i) is a letter or a Roman Numeral for example, 
-"reference" the lines reference. this is typically on part of the full "section_reference"
-"text" the content of the line once the "reference" has been stripped out
-"heading" boolean to flag if the text is a (sub)section heading, 
-"section_reference" the full reference which starts at the root and includes the lines "reference" 
-"word_count"
-Optional
- "document", "page",
-'''
+# These are the outputs from the 
 required_columns_section_lookup = ["section_reference", "cosine_distance", "count", "regulation_text", "token_count"]
 
 class StandardRegulationIndex(RegulationIndex):
@@ -47,16 +37,19 @@ class StandardRegulationIndex(RegulationIndex):
         """
         Parameters:
         -----------
-        reference_checker : ReferenceChecker
-            Used to check and extract section references that will be used to request the regulation extracts
+        user_type : str
+            Used in the system prompt to tell the LLM who is asking the question
+        regulation_name : str
+            Used in the system prompt to tell the LLM what document they are going to be using to answer questions
         regulation_reader : RegulationReader
-            DataFrame containing regulation content so we can find sections.
+            For the method get_regulation_detail and get_regulation_heading
         df_definitions : DataFrame
-            DataFrame containing definitions from the manual. It must have columns ["definition", "embedding"]
+            DataFrame containing definitions from the manual. It must have columns in "required_columns_definition"
         df_index : DataFrame
-            DataFrame containing index information from the manual. If must have columns ["section_reference", "embedding"]
+            DataFrame containing index information from the manual. If must have columns "required_columns_index"
         df_workflow : DataFrame
-            DataFrame containing workflow information for the chat so we can change from RAG mode into something else
+            DataFrame containing workflow information for the chat so we can change from RAG mode into something else.
+            It must have columns "required_columns_workflow"
         """
         self.definitions = df_definitions
         self.index = df_index
