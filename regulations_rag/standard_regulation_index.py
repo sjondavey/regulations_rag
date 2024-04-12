@@ -206,9 +206,9 @@ class StandardRegulationIndex(RegulationIndex):
         if not relevant_sections.empty:
             logger.log(DEV_LEVEL, "--   Relevant sections found")
             rerank_algo.params["user_question"] = user_content
-            rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo)        
-            relevant_sections = self.cap_rag_section_token_length(relevant_sections, rerank_algo.params["final_token_cap"])
-
+            reranked_sections = rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo)        
+            capped_sections = self.cap_rag_section_token_length(reranked_sections, rerank_algo.params["final_token_cap"])
+            relevant_sections = capped_sections
         else:
             logger.log(DEV_LEVEL, "--   No relevant sections found")
             relevant_sections = pd.DataFrame([], columns = required_columns_section_lookup)

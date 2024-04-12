@@ -71,6 +71,8 @@ def rerank(relevant_sections, rerank_algo):
     else:        
         raise NotImplementedError()
     
+    return relevant_sections
+    
 
 def rerank_most_common(relevant_sections):
     """
