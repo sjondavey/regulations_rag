@@ -113,7 +113,7 @@ def test_cap_rag_section_token_length():
     path_to_additional_index_as_parquet_file = ""
     path_to_workflow_as_parquet = "./test/inputs/workflow.parquet"
 
-    df_regulations = load_regulatory_data_from_files(path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file)
+    df_regulations = load_regulation_data_from_files(path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file)
 
     df_definitions, df_index, df_workflow = load_index_data_from_files(
                                 path_to_definitions_as_parquet_file, path_to_additional_definitions_as_parquet_file,

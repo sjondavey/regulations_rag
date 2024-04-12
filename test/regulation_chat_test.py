@@ -272,7 +272,7 @@ class TestRegulationChat:
         assert output_string == expected_text
 
     def test__create_system_message(self):
-        short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+        short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\((?:i|ii|iii|iv|v|vi)\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
         expected_message = f"You are answering questions for an Authorised Dealer (AD) based only on the sections from the South African Exchange Control Manual that are provided. Please use the manual's index pattern when referring to sections: {short_pattern}. You have three options:\n\
 1) Answer the question. Preface an answer with the tag 'ANSWER:'. End the answer with 'Reference: ' and a comma separated list of the section you used to answer the question if you used any.\n\
 2) Request additional documentation. If, in the body of the sections provided, there is a reference to another section of the Manual that is directly relevant and not already provided, respond with the word 'SECTION:' followed by the full section reference.\n\

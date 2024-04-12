@@ -333,7 +333,8 @@ class RegulationChat():
         Returns:
             str: A formatted message detailing how to respond to questions based on the manual's guidelines.
         """
-        short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+        #short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+        short_pattern = self.index.reference_checker.text_version
         if number_of_options == 2:
             return f"You are answering questions for {self.index.user_type} based only on the sections from the {self.index.regulation_name} that are provided. Please use the manual's index pattern when referring to sections: {short_pattern}. You have two options:\n\
 1) Answer the question. Preface an answer with the tag '{RegulationChat.Prefix.ANSWER.value}'. End the answer with 'Reference: ' and a comma separated list of the section you used to answer the question if you used any.\n\
