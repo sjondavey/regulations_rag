@@ -169,7 +169,7 @@ class RegulationChat():
                     actual_references_used_in_rag, reformatted_response = self.reformat_assistant_answer(response.strip(), sections_in_rag)
                     # Change the user message so that it only contains the actual_references_used_in_rag references
                     relevant_sections = pd.DataFrame(actual_references_used_in_rag, columns = ["section_reference"])
-                    relevant_sections["regulation_text"] = relevant_sections["section_reference"].apply(self.get_regulation_detail)
+                    # relevant_sections["regulation_text"] = relevant_sections["section_reference"].apply(self.get_regulation_detail)
                     self.messages[-1]["content"] = self._add_rag_data_to_question(user_content, df_definitions, relevant_sections)
 
                     # once the user message is updated, we can update the response
@@ -366,12 +366,13 @@ class RegulationChat():
             definitions_content = "Definitions from the Manual\n" + "\n".join(df_definitions['definition']) + "\n"
             user_content += definitions_content
 
-        df_search_sections["regulation_text"] = df_search_sections["section_reference"].apply(
-            lambda x: self.reader.get_regulation_detail(x)
-        )        
-        #df_search_sections["regulation_text"] = self.reader.get_regulation_detail(df_search_sections["section_reference"])        
 
         if not df_search_sections.empty:
+            df_search_sections["regulation_text"] = df_search_sections["section_reference"].apply(
+                lambda x: self.reader.get_regulation_detail(x)
+            )        
+            #df_search_sections["regulation_text"] = self.reader.get_regulation_detail(df_search_sections["section_reference"])        
+
             sections_content = "Sections from the Manual\n" + "\n".join(df_search_sections['regulation_text']) + "\n"
             user_content += sections_content
 
@@ -645,7 +646,7 @@ class RegulationChat():
 
         # Early return if no references found
         if not cleaned_references:
-            return raw_response.split("Reference:")[0].strip()
+            return [], raw_response.split("Reference:")[0].strip()
 
         unique_references = match_strings_to_reference_list(cleaned_references, sections_in_rag)
 

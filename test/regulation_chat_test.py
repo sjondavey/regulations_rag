@@ -88,7 +88,7 @@ class TestRegulationChat:
 
         sections_in_rag = ["E.(A)", "B.12(A)"]
         raw_response = "Hi"
-        formatted_response = self.chat.reformat_assistant_answer(raw_response, sections_in_rag)
+        used_references, formatted_response = self.chat.reformat_assistant_answer(raw_response, sections_in_rag)
         assert raw_response == formatted_response
 
         raw_response = "Some random text here. Reference: E.(A)"
