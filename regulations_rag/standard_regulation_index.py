@@ -332,8 +332,10 @@ def create_test_data():
                                 decryption_key=decryption_key)
     df_regulations = load_regulation_data_from_files(path_to_manual_as_csv_file, path_to_additional_manual_as_csv_file)
 
-    user_type = "Authorised Dealer (AD)" 
-    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    user_type = "an Authorised Dealer (AD)" 
+    #regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    regulation_name = "South African Exchange Control Manual"
+
 
     data = StandardRegulationIndex(user_type = user_type, 
                             regulation_name = regulation_name, 

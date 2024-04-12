@@ -120,8 +120,10 @@ def test_cap_rag_section_token_length():
                                 path_to_index_as_parquet_file, path_to_additional_index_as_parquet_file,
                                 path_to_workflow_as_parquet)
 
-    user_type = "Authorised Dealer (AD)" 
-    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    user_type = "an Authorised Dealer (AD)" 
+    # regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    regulation_name = "South African Exchange Control Manual"
+
 
     reader = TESTReader(reference_checker = reference_checker, regulation_df = df_regulations)
     data = StandardRegulationIndex(user_type = user_type,

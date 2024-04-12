@@ -39,8 +39,10 @@ class TestRegulationChat:
                                                                 path_to_manual_as_csv_file = path_to_manual_as_csv_file, 
                                                                 path_to_additional_manual_as_csv_file = path_to_additional_manual_as_csv_file)
 
-    user_type = "Authorised Dealer (AD)" 
-    regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    user_type = "an Authorised Dealer (AD)" 
+    # regulation_name = "\'Currency and Exchange Manual for Authorised Dealers\' (Manual or CEMAD)"
+    regulation_name = "South African Exchange Control Manual"
+
 
     reference_checker = TESTReferenceChecker()
     regulation_reader = TESTReader(reference_checker = reference_checker, regulation_df = df_regulations)
