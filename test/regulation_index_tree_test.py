@@ -4,7 +4,7 @@ import pytest
 from regulations_rag.reference_checker import TESTReferenceChecker
 
 from regulations_rag.regulation_index import RegulationIndex
-from regulations_rag.regulation_index_tree import TableOfContentTree, StandardTableOfContentTree, split_tree
+from regulations_rag.regulation_table_of_content import TableOfContent, StandardTableOfContent, split_tree
 from regulations_rag.regulation_reader import load_csv_data
 from regulations_rag.regulation_reader import TESTReader
 
@@ -15,7 +15,7 @@ class TestTree:
     index_checker = TESTReferenceChecker()
 
     def test_add_to_toc(self):
-        tree = TableOfContentTree("Excon", self.index_checker)
+        tree = TableOfContent("Excon", self.index_checker)
         invalid_reference = 'G.1(C)(xviii)(c)(DD)(9)'
         with pytest.raises(ValueError):
             tree.add_to_toc(invalid_reference, heading_text='')
@@ -35,7 +35,7 @@ class TestTree:
 
 
     def test_get_node(self):
-        tree = TableOfContentTree("Excon", self.index_checker)
+        tree = TableOfContent("Excon", self.index_checker)
         invalid_reference = 'G.1(C)(xviii)(c)(DD)(9)'
         with pytest.raises(ValueError):
             tree.get_node(invalid_reference)
@@ -60,19 +60,19 @@ class TestTree:
         assert tree.get_node(sub_index).heading_text == 'Some less deep heading here'
 
 
-class TestStandardTableOfContentTree:
+class TestStandardTableOfContent:
     index_checker = TESTReferenceChecker()
 
     def test_construction(self):
         df = load_csv_data("./test/inputs/tree_test_data.csv")
-        tree = StandardTableOfContentTree("Excon", self.index_checker, df)
+        tree = StandardTableOfContent("Excon", self.index_checker, df)
         assert True
 
 
 def test_split_tree():
     reference_checker = TESTReferenceChecker()
     df = load_csv_data("./test/inputs/tree_test_data.csv")
-    toc = StandardTableOfContentTree("Excon", reference_checker, df)
+    toc = StandardTableOfContent("Excon", reference_checker, df)
     reader = TESTReader(reference_checker, df)
 
     #node_list=[]

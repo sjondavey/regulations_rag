@@ -39,7 +39,7 @@ class TableOfContentEntry(Node):
 
         return self.heading_text
 
-class TableOfContentTree:
+class TableOfContent:
     def __init__(self, root_id, index_checker):
         self.root = TableOfContentEntry(root_id, "", parent=None, heading_text='')
         self.index_checker = index_checker
@@ -139,7 +139,7 @@ class TableOfContentTree:
         return string
 
 
-class StandardTableOfContentTree(TableOfContentTree):
+class StandardTableOfContent(TableOfContent):
 
     def __init__(self, root_node_name, index_checker, regulation_df):
         """
@@ -162,7 +162,7 @@ class StandardTableOfContentTree(TableOfContentTree):
         super().__init__(root_node_name, index_checker=index_checker)
         self.regulation_df = regulation_df
         if not self.check_columns():
-            message = f"The input DataFrame did not have the correct headings to build the StandardTableOfContentTree. Required columns are text, heading and section_reference"
+            message = f"The input DataFrame did not have the correct headings to build the StandardTableOfContent. Required columns are text, heading and section_reference"
             logger.error(message)
             raise AttributeError(message)
 
