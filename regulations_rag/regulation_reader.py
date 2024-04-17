@@ -25,6 +25,9 @@ class RegulationReader(ABC):
     def get_regulation_detail(section_reference):
         pass
 
+
+
+
 def load_csv_data(path_to_file):
     """
     Loads data from a CSV file, ensuring no NaN values are present.
