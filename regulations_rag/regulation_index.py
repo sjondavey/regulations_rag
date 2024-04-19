@@ -46,7 +46,6 @@ class RegulationIndex(ABC):
         self.user_type = user_type
         self.regulation_name = regulation_name
         self.regulation_reader = regulation_reader
-        self.reference_checker = regulation_reader.reference_checker
 
 
     @abstractmethod

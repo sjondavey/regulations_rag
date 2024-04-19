@@ -5,7 +5,6 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from regulations_rag.reference_checker import ReferenceChecker
 
-import pandas as pd 
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -18,11 +17,11 @@ class RegulationReader(ABC):
         self.reference_checker = reference_checker
 
     @abstractmethod
-    def get_regulation_heading(section_reference):
+    def get_regulation_heading(self, section_reference):
         pass
 
     @abstractmethod
-    def get_regulation_detail(section_reference):
+    def get_regulation_detail(self, section_reference):
         pass
 
 
