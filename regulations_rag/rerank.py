@@ -1,3 +1,4 @@
+from openai import APIConnectionError
 import pandas as pd
 import copy
 import logging
