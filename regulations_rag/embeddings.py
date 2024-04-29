@@ -64,6 +64,7 @@ def get_ada_embedding(openai_client, text, model="text-embedding-ada-002", dimen
 #    return openai.embeddings.create(input = [text], model=model).data[0].embedding
 
 def get_closest_nodes(df, embedding_column_name, content_embedding, threshold = 0.15):
-      df['cosine_distance'] = df[embedding_column_name].apply(lambda x: distance.cosine(x, content_embedding))
+      #df['cosine_distance'] = df[embedding_column_name].apply(lambda x: distance.cosine(x, content_embedding))
+      df.loc[:, 'cosine_distance'] = df[embedding_column_name].apply(lambda x: distance.cosine(x, content_embedding))
       closest_nodes = df[df['cosine_distance'] < threshold].sort_values(by='cosine_distance', ascending=True)
       return closest_nodes
