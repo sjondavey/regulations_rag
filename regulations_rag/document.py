@@ -13,8 +13,11 @@ class Document(ABC):
     def get_heading(self, section_reference):
         pass
 
-    @abstractmethod
+    @abstractmethod    
     def get_text(self, section_reference):
+        '''
+        NOTE: When used with the Table of Content to break up a document into chunks, the call to get_text("") should return the entire text of the document
+        '''
         pass
 
 

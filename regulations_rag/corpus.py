@@ -22,7 +22,7 @@ class Corpus():
         return doc.get_text(section_reference)
 
 
-def create_corpus_from_folder_of_documents(folder_name):
+def create_document_dictionary_from_folder(folder_name):
     """
     Create a dictionary of document instances from Python classes defined in the files within a given folder.
 

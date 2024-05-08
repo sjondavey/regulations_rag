@@ -52,7 +52,7 @@ class ChatParameters:
         self.max_tokens = max_tokens
 
         self.tested_models = ["gpt-3.5-turbo", "gpt-4", "gpt-3.5-turbo-16k"]
-        untested_models = ["gpt-4-1106-preview", "gpt-4-0125-preview"]
+        untested_models = ["gpt-4-1106-preview", "gpt-4-0125-preview", "gpt-4-turbo"]
         if self.model not in self.tested_models:
             if self.model not in untested_models:
                 raise ValueError("You are attempting to use a model that does not seem to exist")
