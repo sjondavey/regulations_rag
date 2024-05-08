@@ -76,7 +76,7 @@ def find_class_names_in_files(directory):
 
 
 
-def get_document_class_by_name(class_name):
+def get_document_class_by_name(class_name, namespace_dict=None):
     """
     Retrieve a class object from the global scope by its name.
 
@@ -89,7 +89,9 @@ def get_document_class_by_name(class_name):
     This function attempts to find a class by its name in the global scope. If the class exists, it returns the class object;
     otherwise, it returns None.
     """
-    return globals().get(class_name)
+    if namespace_dict is None:
+        namespace_dict = globals()
+    return namespace_dict.get(class_name)
 
 
 
