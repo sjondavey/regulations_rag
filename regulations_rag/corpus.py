@@ -1,14 +1,5 @@
-import logging
 import os
 import ast
-
-from gdpr_rag.documents.gdpr import GDPR
-from gdpr_rag.documents.article_30_5 import Article_30_5
-from gdpr_rag.documents.article_47_bcr import Article_47_BCR
-
-logger = logging.getLogger(__name__)
-DEV_LEVEL = 15
-logging.addLevelName(DEV_LEVEL, 'DEV')       
 
 class Corpus():
     """  
