@@ -2,6 +2,8 @@ import logging
 
 from abc import ABC, abstractmethod
 
+from regulations_rag.rerank import RerankAlgos
+
 class CorpusIndex(ABC):
     """
     A class to handle and provide relevant sections, definitions, and workflow. This could wrap a database or a DataFrame
