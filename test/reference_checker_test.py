@@ -1,5 +1,7 @@
 import pytest
-from regulations_rag.reference_checker import ReferenceChecker, TESTReferenceChecker
+import pandas as pd
+
+from regulations_rag.reference_checker import ReferenceChecker, EmptyReferenceChecker, MultiReferenceChecker, TESTReferenceChecker
 
 class TestReferenceChecker:
 
@@ -145,3 +147,69 @@ class TestReferenceChecker:
 
 
                     super().__init__(regex_list_of_indices = index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
+
+
+
+class TestEmptyReferenceChecker():
+    no_reference = EmptyReferenceChecker()
+
+    def test_construction(self):
+        assert True
+
+    def test_is_valid(self):
+        assert self.no_reference.is_valid("")
+        assert not self.no_reference.is_valid("A")
+        assert self.no_reference.is_valid(None)
+
+        data = ["", "article_30_5"]
+        df = pd.DataFrame([data], columns=["section_reference", "document"])
+        empty_df_entry = df.iloc[0]["section_reference"]
+        assert self.no_reference.is_valid(empty_df_entry)
+
+        data = [None, "article_30_5"]
+        df = pd.DataFrame([data], columns=["section_reference", "document"])
+        empty_df_entry = df.iloc[0]["section_reference"]
+        assert self.no_reference.is_valid(empty_df_entry)
+
+
+
+
+class MainSection(ReferenceChecker):
+    def __init__(self):
+        exclusion_list = [] 
+        index_patterns = [
+            r'^\d+',   
+            r'^\.\d+', 
+            r'^\.\d+', 
+            r'^\.\d+', 
+        ]    
+        text_pattern = r'(\d+(\.\d+)?(\.\d+)?(\.\d+)?)'
+
+        super().__init__(regex_list_of_indices = index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
+
+class AltSection(ReferenceChecker):
+    def __init__(self):
+        exclusion_list = [] #
+        index_patterns = [
+            r'\bApplication\b',
+            r'\.\s(Part|Annex)\s\d+', # "". Part" or ".Annex"
+            r'\.\d+',
+        ]
+        text_pattern = r'Application. (Part/Annex\s\d+)?(\.(\d+))?'
+
+        super().__init__(regex_list_of_indices = index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
+
+class TestMultiReferenceChecker():
+
+    main = MainSection()
+    alt = AltSection()
+    doc_ref_checker = MultiReferenceChecker([main, alt])
+
+    def test_is_valid(self):
+        assert self.doc_ref_checker.is_valid("3.4.2.1")
+        assert self.doc_ref_checker.is_valid("Application. Annex 2.1")
+        assert not self.doc_ref_checker.is_valid("Application. Annex")
+
+    def test_get_parent_reference(self):
+        assert self.doc_ref_checker.get_parent_reference("3.4.2.1") == "3.4.2"
+        assert self.doc_ref_checker.get_parent_reference("Application. Part 2") == "Application"
