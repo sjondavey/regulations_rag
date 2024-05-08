@@ -33,7 +33,7 @@ def create_document_dictionary_from_folder(folder_name):
     dict: A dictionary where keys are the class names and values are instances of these classes.
 
     This function reads Python files in the specified folder, extracts class definitions, and creates an instance
-    of each class. It logs the process, noting whether instances are added successfully or if a class was not found.
+    of each class. 
     """
     class_names_dict = find_class_names_in_files(folder_name)
     all_documents = {}
@@ -43,9 +43,6 @@ def create_document_dictionary_from_folder(folder_name):
         if doc_class:
             document_instance = doc_class()
             all_documents[class_names_dict[class_name]] = document_instance
-            logger.log(DEV_LEVEL, f"Added instance of {class_name} to all_documents.")
-        else:
-            logger.log(DEV_LEVEL, f"Class {class_name} not found.")
     return all_documents
 
 
