@@ -129,3 +129,19 @@ class TestReferenceChecker:
         index, string = self.reference_checker._extract_reference_from_string(heading_on_exclusion_list)
         assert index == heading_on_exclusion_list
         assert string == ""
+
+        def test_another_reference_tester(self):
+            class ManualReferenceChecker(ReferenceChecker):
+                def __init__(self):
+                    exclusion_list = [] # none of this will be indexed
+                    # NOTE: I do not include 'analysis' in the reference checker because I will never have a user search for sections with this as the reference
+                    index_patterns = [
+                        r'\bApplication\b',
+                        r'\.\s(Part|Annex)\s\d+', # "". Part" or ".Annex"
+            #            r'(\d+)',
+                        r'\.\d+',
+                    ]
+                    text_pattern = r'Application. (Part/Annex\s\d+)?(\.(\d+))?'
+
+
+                    super().__init__(regex_list_of_indices = index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
