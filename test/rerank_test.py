@@ -155,16 +155,19 @@ def test_rerank_most_common():
 def test_rerank_llm():
     openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"),)
     model_to_use = "gpt-3.5-turbo"
+    model_to_use = "gpt-4-1106-preview"
 
     test_data = []
-    test_data.append(['A.1(A)(i)(a)', 0.1, "question", "Dentists can buy gold"])
-    test_data.append(['A.1(A)(i)(b)', 0.2, "question", "Trusts can transfer money offshore"])
-    test_data.append(['A.1(A)(i)(c)', 0.3, "question", "Producers can sell gold"])
-    test_data.append(['A.1(A)(i)(c)', 0.5, "question", "How much money can an individual take offshore?"])
-    test_data.append(['A.1(A)(i)(b)', 0.6, "question", "How much cash can I take on holiday?"])
-    test_data.append(['A.1(A)(i)(d)', 0.7, "question", "Why is it so cold"])
-    relevant_sections = pd.DataFrame(test_data, columns = ["section_reference", "cosine_distance", "source", "text"])        
+    test_data.append(['cemad', 'A.1(A)(i)(a)', 0.1, "question", "Dentists can buy gold"])
+    test_data.append(['cemad', 'A.1(A)(i)(b)', 0.2, "question", "Trusts can transfer money offshore"])
+    test_data.append(['cemad', 'A.1(A)(i)(c)', 0.3, "question", "Producers can sell gold"])
+    test_data.append(['cemad', 'A.1(A)(i)(c)', 0.5, "question", "How much money can an individual take offshore?"])
+    test_data.append(['cemad', 'A.1(A)(i)(b)', 0.6, "question", "How much cash can I take on holiday?"])
+    test_data.append(['cemad', 'A.1(A)(i)(d)', 0.7, "question", "Why is it so cold"])
+    relevant_sections = pd.DataFrame(test_data, columns = ["document", "section_reference", "cosine_distance", "source", "text"])        
     
     user_question = "Who can trade gold?"
-    reranked_sections = rerank_llm(relevant_sections = relevant_sections, openai_client = openai_client, model_to_use = model_to_use, user_question = user_question)
+    user_type = "an Authorised Dealer"
+    corpus_description = "the Currency and Exchange Control Manual for Authorised Dealers"
+    reranked_sections = rerank_llm(relevant_sections = relevant_sections, openai_client = openai_client, model_to_use = model_to_use, user_question = user_question, user_type = user_type, corpus_description = corpus_description)
     assert len(reranked_sections) == 2 # should return "Dentists can buy gold" and "Producers can sell gold"

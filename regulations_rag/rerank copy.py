@@ -25,7 +25,7 @@ only contains the mandatory_columns
 class RerankAlgos(Enum):
     NONE = ("none", {"initial_section_number_cap": 15, "final_token_cap": 3500, "user_question": None})
     MOST_COMMON = ("most_common", {"initial_section_number_cap": 15, "final_token_cap": 3500, "user_question": None})
-    LLM = ("llm", {"initial_section_number_cap": 15, "final_token_cap": 3500, "openai_client": None, "model_to_use": None, "user_question": None, "user_type": "", "corpus_description": ""})
+    LLM = ("llm", {"initial_section_number_cap": 15, "final_token_cap": 3500, "openai_client": None, "model_to_use": None, "user_question": None})
 
     def __init__(self, algo, params):
         self.algo = algo
@@ -60,20 +60,15 @@ def rerank(relevant_sections, rerank_algo):
     if not check_rerank_columns(relevant_sections):
         raise AttributeError("The dataframe to rerank does not have the correct columns")
     
-    if rerank_algo.algo == "none":
+    if rerank_algo == RerankAlgos.NONE:
         logger.log(DEV_LEVEL, f"No re-ranking of the relevant sections")
         # relevant_sections = relevant_sections
-    elif rerank_algo.algo == 'most_common':
+    elif rerank_algo == RerankAlgos.MOST_COMMON:
         logger.log(DEV_LEVEL, f"Re-ranking using most_common")
         relevant_sections = rerank_most_common(relevant_sections)
-    elif rerank_algo.algo == "llm":
+    elif rerank_algo == RerankAlgos.LLM:
         logger.log(DEV_LEVEL, f"Re-ranking using LLM")
-        relevant_sections = rerank_llm(relevant_sections, 
-                                       openai_client = rerank_algo.params["openai_client"], 
-                                       model_to_use=rerank_algo.params["model_to_use"], 
-                                       user_question = rerank_algo.params["user_question"],
-                                       user_type = rerank_algo.params["user_type"],
-                                       corpus_description = rerank_algo.params["corpus_description"])
+        relevant_sections = rerank_llm(relevant_sections, openai_client = rerank_algo.params["openai_client"], model_to_use=rerank_algo.params["model_to_use"], user_question = rerank_algo.params["user_question"])
     else:        
         raise NotImplementedError()
     
@@ -154,23 +149,19 @@ def rerank_most_common(relevant_sections):
 
 
 
-def rerank_llm(relevant_sections, openai_client, model_to_use, user_question, user_type, corpus_description):
+def rerank_llm(relevant_sections, openai_client, model_to_use, user_question):
 
     list_of_sections_and_text = []
-    counter = 1
     for index, row in relevant_sections.iterrows():
-        list_of_sections_and_text.append(f"Index {counter}: {row['text']}")
-        counter += 1
+        list_of_sections_and_text.append(f"{row['section_reference']}: {row['text']}")
     string_of_sections_and_text = "\n".join(list_of_sections_and_text)
 
-    
-    system_content = f"You are answering {user_type} answer questions on {corpus_description}. You will be given the users question followed \
-by a list of index items. An index item is a description of what is contained in a document. It is either a summary of the document or a question that is \
-answered in the document. Your job is to use the index items to determine which documents are likely to contain an answer to the users question. List the \
-number of the index items in a pipe delimited list. Do not respond with any other text. Just the pipe delimited list of integer index numbers."
-
-    
-    user_content = f"### Question: {user_question}\n### Index items: \n{string_of_sections_and_text}"
+    short_pattern = r"[A-Z]\.\d{0,2}\([A-Z]\)\(\b(?:i|ii|iii|iv|v|vi)\b\)\([a-z]\)\([a-z]{2}\)\(\d+\)"
+    system_content = "You are assisting and Autorised Dealer to answer questions from the Currency and Exchange Control Manual for Authorised Dealers (CEMAD). \
+You will be given the users question followed by a list of sections from CEMAD along with the section's heading, summary or a questions which is answered in section. \
+Your job is to choose which sections are likely to contain an answer and output that list as a pipe delimited list. Do not respond with any other text. Just the pipe \
+delimited list paying attention to ensure the format of the section reference is {short_pattern} with no following text."
+    user_content = f"### Question: {user_question}### CEMAD Sections with heading, summary or a question that is answered in the section: \n{string_of_sections_and_text}"
 
     messages = []
     messages.append({"role": "system", "content": system_content})
@@ -189,34 +180,35 @@ number of the index items in a pipe delimited list. Do not respond with any othe
 
 
     relevant_section_references = [item.strip() for item in response_text.split('|')]    
-    unique_items = []
-    references_as_integers = []
-    found_at_least_one_reference = False
-    for item in relevant_section_references:
-        try:
-            # Attempt to convert the item to an integer
-            integer_value = int(item)
-            if integer_value < 1 or integer_value > len(relevant_sections):
-                logger.log(DEV_LEVEL, f"{item} should be an integer between 1 and {len(relevant_sections)} but it is not")
-            else:
-                search_section_row_to_add = integer_value - 1
-                doc_section_par = f"{relevant_sections.iloc[search_section_row_to_add]['document']}_{relevant_sections.iloc[search_section_row_to_add]['section_reference']}"
-                if len(unique_items) == 0 or doc_section_par not in unique_items:
-                    unique_items.append(doc_section_par)
-                    references_as_integers.append(search_section_row_to_add)
-                    found_at_least_one_reference = True
-        except ValueError:
-            logger.log(DEV_LEVEL, f"{item} should be an integer between 1 and {len(relevant_sections)} but it is not")
 
-    # remove duplicates
-    document_section = set()
+    checked_list_of_strings = match_strings_to_reference_list(list_of_strings = relevant_section_references, reference_list_of_strings = relevant_sections['section_reference'].to_list())
 
     logger.log(DEV_LEVEL, "--   results requested by LLM filter")
-    for section in references_as_integers:
-        logger.log(DEV_LEVEL, f'{relevant_sections.iloc[section]["section_reference"]}')
+    for section in checked_list_of_strings:
+        logger.log(DEV_LEVEL, f'{section}')
+
+    # Initialize a list to hold the rows for the subset
+    subset_rows = []
+
+    # Iterate over the list of strings
+    for string in checked_list_of_strings:
+        # Filter the DataFrame for rows matching the current string
+        matches = relevant_sections[relevant_sections['section_reference'].eq(string)]
+        
+        # If there are matches, find the one with the minimum 'cosine_distance'
+        if not matches.empty:
+            best_match = matches.loc[matches['cosine_distance'].idxmin()]
+            # Add the best match row to the list
+            subset_rows.append(best_match)
 
 
     # Create a DataFrame from the list of best match rows
-    subset_df = relevant_sections.iloc[references_as_integers]
+    subset_df = pd.DataFrame(subset_rows).reset_index(drop=True)
+
+    if len(checked_list_of_strings) != len(subset_df):
+        logger.log(DEV_LEVEL, f'Not all requested sections could be matched. The ones that could are:')
+        for index, row in subset_df.iterrows():
+            logger.log(DEV_LEVEL,f'{row["section_reference"]}')
+
 
     return subset_df
