@@ -22,7 +22,7 @@ class Corpus():
         return doc.get_text(section_reference)
 
 
-def create_document_dictionary_from_folder(folder_name):
+def create_document_dictionary_from_folder(folder_name, namespace_dict=None):
     """
     Create a dictionary of document instances from Python classes defined in the files within a given folder.
 
@@ -39,7 +39,7 @@ def create_document_dictionary_from_folder(folder_name):
     all_documents = {}
     for class_name in class_names_dict:
 
-        doc_class = get_document_class_by_name(class_names_dict[class_name])
+        doc_class = get_document_class_by_name(class_names_dict[class_name], namespace_dict)
         if doc_class:
             document_instance = doc_class()
             all_documents[class_names_dict[class_name]] = document_instance
