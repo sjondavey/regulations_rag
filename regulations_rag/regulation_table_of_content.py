@@ -225,7 +225,7 @@ def _split_recursive(node, document, table_of_content, token_limit, node_list=[]
             raise Exception(f'Node {node.full_node_name} has no children but has a token count of {token_count} so it cannot be split into nodes that contain fewer tokens that {token_limit}')
         for child in node.children:
             _split_recursive(child, document, table_of_content, token_limit, node_list)
-            _split_recursive(child, regulation_reader, table_of_content, token_limit, node_list)
+            #_split_recursive(child, regulation_reader, table_of_content, token_limit, node_list)
     else:
         node_list.append(node)
 

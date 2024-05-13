@@ -6,7 +6,7 @@ from regulations_rag.reference_checker import TESTReferenceChecker
 from regulations_rag.regulation_index import RegulationIndex
 from regulations_rag.regulation_table_of_content import TableOfContent, StandardTableOfContent, split_tree
 from regulations_rag.regulation_reader import load_csv_data
-from regulations_rag.regulation_reader import TESTReader
+from regulations_rag.document import TESTDocument
 
 # from regulations_rag.file_tools import process_lines, add_full_reference
 
@@ -73,7 +73,7 @@ def test_split_tree():
     reference_checker = TESTReferenceChecker()
     df = load_csv_data("./test/inputs/tree_test_data.csv")
     toc = StandardTableOfContent("Excon", reference_checker, df)
-    reader = TESTReader(reference_checker, df)
+    reader = TESTDocument(reference_checker, df)
 
     #node_list=[]
     token_limit_per_chunk = 125
