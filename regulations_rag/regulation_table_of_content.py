@@ -2,7 +2,6 @@ import logging
 from anytree import Node, RenderTree, find, LevelOrderIter, AsciiStyle
 import re
 import pandas as pd
-from regulations_rag.regulation_index import RegulationIndex
 from regulations_rag.embeddings import num_tokens_from_string
         
 logger = logging.getLogger(__name__)
@@ -198,7 +197,8 @@ class StandardTableOfContent(TableOfContent):
 
 
 
-def _split_recursive(node, regulation_reader, table_of_content, token_limit, node_list=[]):
+def _split_recursive(node, document, table_of_content, token_limit, node_list=[]):
+#def _split_recursive(node, regulation_reader, table_of_content, token_limit, node_list=[]):
     """    
     Recursively splits nodes based on token limits and collects valid nodes in a list.
     You shouldn't need to call this method. Rather use the "split_tree()" method
@@ -216,13 +216,15 @@ def _split_recursive(node, regulation_reader, table_of_content, token_limit, nod
     if node_list is None:
         node_list = []
 
-    subsection_text = regulation_reader.get_regulation_detail(node.full_node_name)
+    subsection_text = regulation_reader.get_text(node.full_node_name)
+    #subsection_text = regulation_reader.get_regulation_detail(node.full_node_name)
     token_count = num_tokens_from_string(subsection_text)
 
     if token_count > token_limit:
         if not node.children:
             raise Exception(f'Node {node.full_node_name} has no children but has a token count of {token_count} so it cannot be split into nodes that contain fewer tokens that {token_limit}')
         for child in node.children:
+            _split_recursive(child, document, table_of_content, token_limit, node_list)
             _split_recursive(child, regulation_reader, table_of_content, token_limit, node_list)
     else:
         node_list.append(node)
@@ -230,7 +232,8 @@ def _split_recursive(node, regulation_reader, table_of_content, token_limit, nod
     return node_list
 
 
-def split_tree(node, regulation_reader, table_of_content, token_limit):
+def split_tree(node, document, table_of_content, token_limit):
+#def split_tree(node, regulation_reader, table_of_content, token_limit):
     """
     Splits a tree starting from a given node into sections that don't exceed a token limit.
     
@@ -246,11 +249,16 @@ def split_tree(node, regulation_reader, table_of_content, token_limit):
     Returns:
     - pd.DataFrame: A DataFrame with columns ['section_reference', 'text', 'token_count'] for each valid section_reference.
     """
-    node_list = _split_recursive(node, regulation_reader, table_of_content, token_limit, node_list=[])
+    #node_list = _split_recursive(node, regulation_reader, table_of_content, token_limit, node_list=[])
+    node_list = _split_recursive(node, document, table_of_content, token_limit, node_list=[])
     section_token_count = [[node.full_node_name, 
-                            regulation_reader.get_regulation_detail(node.full_node_name),
-                            num_tokens_from_string(regulation_reader.get_regulation_detail(node.full_node_name))] 
+                            document.get_text(node.full_node_name),
+                            num_tokens_from_string(document.get_text(node.full_node_name))] 
                            for node in node_list]
+    # section_token_count = [[node.full_node_name, 
+    #                         regulation_reader.get_regulation_detail(node.full_node_name),
+    #                         num_tokens_from_string(regulation_reader.get_regulation_detail(node.full_node_name))] 
+    #                        for node in node_list]
 
 
     return pd.DataFrame(section_token_count, columns=['section_reference', 'text', 'token_count'])
