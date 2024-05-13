@@ -216,7 +216,7 @@ def _split_recursive(node, document, table_of_content, token_limit, node_list=[]
     if node_list is None:
         node_list = []
 
-    subsection_text = regulation_reader.get_text(node.full_node_name)
+    subsection_text = document.get_text(node.full_node_name)
     #subsection_text = regulation_reader.get_regulation_detail(node.full_node_name)
     token_count = num_tokens_from_string(subsection_text)
 
