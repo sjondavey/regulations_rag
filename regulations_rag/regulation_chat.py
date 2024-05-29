@@ -51,7 +51,7 @@ class ChatParameters:
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        self.tested_models = ["gpt-3.5-turbo", "gpt-4", "gpt-3.5-turbo-16k"]
+        self.tested_models = ["gpt-4o", "gpt-3.5-turbo", "gpt-4", "gpt-3.5-turbo-16k"]
         untested_models = ["gpt-4-1106-preview", "gpt-4-0125-preview", "gpt-4-turbo"]
         if self.model not in self.tested_models:
             if self.model not in untested_models:
