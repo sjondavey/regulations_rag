@@ -1,4 +1,5 @@
 import os
+import re
 import pandas as pd
 from abc import ABC, abstractmethod
 from regulations_rag.reference_checker import ReferenceChecker
@@ -9,16 +10,151 @@ class Document(ABC):
         self.name = document_name 
         self.reference_checker = reference_checker
 
-    @abstractmethod
-    def get_heading(self, section_reference):
-        pass
-
     @abstractmethod    
     def get_text(self, section_reference):
         '''
         NOTE: When used with the Table of Content to break up a document into chunks, the call to get_text("") should return the entire text of the document
         '''
         pass
+
+    def _extract_footnotes(self, text, footnote_pattern):
+        ''' 
+        This assumes that the DataFrame that stores the document is formatted such that the footnotes are saved with the paragraph of text that
+        refers to them. This method extracts the footnote(s) from a section of text so the text and footnotes for a section can be re-assembled 
+        separately
+        ''' 
+        lines = text.split('\n')
+        footnotes = []
+        remaining_text = []
+
+        for line in lines:
+            if re.match(footnote_pattern, line):
+                footnotes.append(line)
+            else:
+                remaining_text.append(line)
+
+        text = '\n'.join(remaining_text)
+        return footnotes, text
+
+
+    def _format_line(self, row, text_extract, add_markdown_decorators = False):
+        ''' 
+        This method 
+            - adds the section_reference to any line labelled as a heading
+            - adds the markdown # to headings if add_markdown_decorators == True
+            - ends the line with 
+                - "\n" if add_markdown_decorators = False
+                - "\n\n" if add_markdown_decorators = True
+        ''' 
+        if row["heading"]:
+            line = ""
+            if add_markdown_decorators:
+                depth = self.reference_checker.split_reference(row["section_reference"])
+                line = "#" * len(depth)  + " " +  row["section_reference"] + " " + text_extract + "\n\n"
+            else:
+                line = row["section_reference"] + " " + text_extract + "\n"
+
+            return line
+            
+        else:    
+            if add_markdown_decorators:
+                return text_extract + "\n\n"
+            else:
+                return text_extract + "\n"
+
+
+    def get_md_text_for_section_only(self, section_reference, footnote_pattern = r'^\[\^\d+\]\:'):
+        ''' 
+        A commonly used pattern for traditional documents where we select only the text "below" and the headings "above" the section reference. 
+        Contrast this with a pattern used in legal documents where we would also select the text "above" the section reference back to the root node
+        '''
+        if not (section_reference == "" or self.reference_checker.is_valid(section_reference)):
+            return "" 
+        else:
+
+            text = ""
+            all_footnotes = []
+            if section_reference == "":
+                subset = self.document_as_df
+            else:
+                subset = self.document_as_df[self.document_as_df["section_reference"] == section_reference] 
+
+            if len(subset) == 0:
+                return ""
+            for index, row in subset.iterrows():
+                footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
+                text_extract = text_extract.strip()
+                all_footnotes = all_footnotes + footnotes
+                text += self._format_line(row, text_extract, add_markdown_decorators = True)
+            parent = self.reference_checker.get_parent_reference(section_reference)
+            build_up = ""
+            while parent != "":
+                subset = self.document_as_df[self.document_as_df["section_reference"] == parent]
+                for index, row in subset[::-1].iterrows(): # backwards
+                    if row["heading"]:
+                        footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
+                        text_extract = text_extract.strip()
+                        all_footnotes = all_footnotes + footnotes
+                        build_up = self._format_line(row, text_extract, add_markdown_decorators = True) + build_up
+
+
+                parent = self.reference_checker.get_parent_reference(parent)
+            if build_up != "":
+                text = build_up + text
+            for footnote in all_footnotes:
+                text = text + "  \n" + footnote
+
+            return text.strip()
+
+
+    def get_heading(self, section_reference, footnote_pattern = r'^\[\^\d+\]\:'):
+        '''
+        Some heading have footnotes :-(
+        No markdown formatting is added to the heading text
+        '''
+        if not self.reference_checker.is_valid(section_reference):
+            return "" 
+        else:
+            text = ""
+            all_footnotes = []
+            subset = self.document_as_df[self.document_as_df["section_reference"] == (section_reference)]
+            if len(subset) > 0:
+                for index, row in subset.iterrows():
+                    footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
+                    text_extract = text_extract.strip()
+                    if row['heading']:
+                        formatted_text = self._format_line(row, text_extract, add_markdown_decorators = False)
+                        if formatted_text:
+                            all_footnotes = all_footnotes + footnotes
+                            text += formatted_text
+                            # if text == "":
+                            #     text = formatted_text
+                            # else:
+                            #     text += "\n" + formatted_text
+
+                parent = self.reference_checker.get_parent_reference(section_reference)
+                build_up = ""
+                while parent != "":
+                    subset = self.document_as_df[self.document_as_df["section_reference"] == parent]
+                    for index, row in subset[::-1].iterrows(): # backwards
+                        if row['heading']:
+                            footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
+                            text_extract = text_extract.strip()
+                            formatted_text = self._format_line(row, text_extract, add_markdown_decorators = False)
+                            if formatted_text:
+                                all_footnotes = all_footnotes + footnotes
+                                build_up = formatted_text + build_up
+                                # if build_up == "":
+                                #     build_up = formatted_text    
+                                # else:
+                                #     build_up = formatted_text + "\n" + build_up
+
+                    parent = self.reference_checker.get_parent_reference(parent)
+                text = build_up + text
+                # for footnote in all_footnotes:
+                #     text = text + "\n" + footnote
+
+            return text.strip("\n")
 
 
 
