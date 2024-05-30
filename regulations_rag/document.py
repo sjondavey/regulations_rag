@@ -88,7 +88,10 @@ class Document(ABC):
                 footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
                 text_extract = text_extract.strip()
                 all_footnotes = all_footnotes + footnotes
+                if text.strip().endswith("|") and not text_extract.strip().startswith("|"): # we are done with the table
+                    text += "\n"    
                 text += self._format_line(row, text_extract, add_markdown_decorators)
+
             parent = self.reference_checker.get_parent_reference(section_reference)
             build_up = ""
             while parent != "":
