@@ -60,7 +60,7 @@ class Document(ABC):
             return line
             
         else:    
-            if add_markdown_decorators:
+            if add_markdown_decorators and not line.startswith("|"): # if "|" it is a table
                 return text_extract + "\n\n"
             else:
                 return text_extract + "\n"
