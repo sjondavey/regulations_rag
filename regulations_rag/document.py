@@ -11,7 +11,7 @@ class Document(ABC):
         self.reference_checker = reference_checker
 
     @abstractmethod    
-    def get_text(self, section_reference):
+    def get_text(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):
         '''
         NOTE: When used with the Table of Content to break up a document into chunks, the call to get_text("") should return the entire text of the document
         '''
@@ -23,10 +23,13 @@ class Document(ABC):
         refers to them. This method extracts the footnote(s) from a section of text so the text and footnotes for a section can be re-assembled 
         separately
         ''' 
-        lines = text.split('\n')
         footnotes = []
         remaining_text = []
 
+        if footnote_pattern == "":
+            return footnotes, text
+
+        lines = text.split('\n')
         for line in lines:
             if re.match(footnote_pattern, line):
                 footnotes.append(line)
@@ -37,7 +40,7 @@ class Document(ABC):
         return footnotes, text
 
 
-    def _format_line(self, row, text_extract, add_markdown_decorators = False):
+    def _format_line(self, row, text_extract, add_markdown_decorators):
         ''' 
         This method 
             - adds the section_reference to any line labelled as a heading
@@ -63,7 +66,7 @@ class Document(ABC):
                 return text_extract + "\n"
 
 
-    def get_md_text_for_section_only(self, section_reference, footnote_pattern = r'^\[\^\d+\]\:'):
+    def get_text_for_section_only(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):
         ''' 
         A commonly used pattern for traditional documents where we select only the text "below" and the headings "above" the section reference. 
         Contrast this with a pattern used in legal documents where we would also select the text "above" the section reference back to the root node
@@ -85,7 +88,7 @@ class Document(ABC):
                 footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
                 text_extract = text_extract.strip()
                 all_footnotes = all_footnotes + footnotes
-                text += self._format_line(row, text_extract, add_markdown_decorators = True)
+                text += self._format_line(row, text_extract, add_markdown_decorators)
             parent = self.reference_checker.get_parent_reference(section_reference)
             build_up = ""
             while parent != "":
@@ -95,7 +98,7 @@ class Document(ABC):
                         footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
                         text_extract = text_extract.strip()
                         all_footnotes = all_footnotes + footnotes
-                        build_up = self._format_line(row, text_extract, add_markdown_decorators = True) + build_up
+                        build_up = self._format_line(row, text_extract, add_markdown_decorators) + build_up
 
 
                 parent = self.reference_checker.get_parent_reference(parent)
@@ -107,7 +110,7 @@ class Document(ABC):
             return text.strip()
 
 
-    def get_heading(self, section_reference, footnote_pattern = r'^\[\^\d+\]\:'):
+    def get_heading(self, section_reference, add_markdown_decorators = False, footnote_pattern = r'^\[\^\d+\]\:'):
         '''
         Some heading have footnotes :-(
         No markdown formatting is added to the heading text
@@ -123,14 +126,10 @@ class Document(ABC):
                     footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
                     text_extract = text_extract.strip()
                     if row['heading']:
-                        formatted_text = self._format_line(row, text_extract, add_markdown_decorators = False)
+                        formatted_text = self._format_line(row, text_extract, add_markdown_decorators)
                         if formatted_text:
                             all_footnotes = all_footnotes + footnotes
                             text += formatted_text
-                            # if text == "":
-                            #     text = formatted_text
-                            # else:
-                            #     text += "\n" + formatted_text
 
                 parent = self.reference_checker.get_parent_reference(section_reference)
                 build_up = ""
@@ -140,18 +139,14 @@ class Document(ABC):
                         if row['heading']:
                             footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
                             text_extract = text_extract.strip()
-                            formatted_text = self._format_line(row, text_extract, add_markdown_decorators = False)
+                            formatted_text = self._format_line(row, text_extract, add_markdown_decorators)
                             if formatted_text:
                                 all_footnotes = all_footnotes + footnotes
                                 build_up = formatted_text + build_up
-                                # if build_up == "":
-                                #     build_up = formatted_text    
-                                # else:
-                                #     build_up = formatted_text + "\n" + build_up
 
                     parent = self.reference_checker.get_parent_reference(parent)
                 text = build_up + text
-                # for footnote in all_footnotes:
+                # for footnote in all_footnotes: # Don't display the actual footnotes to the headings. The Markers like [^3] will still be in them
                 #     text = text + "\n" + footnote
 
             return text.strip("\n")

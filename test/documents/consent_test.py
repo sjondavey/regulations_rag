@@ -17,6 +17,15 @@ class TestConsent:
         assert f_array[0] == f
         assert t_output == t
 
+        # test if the footnote pattern is blank
+        f_array, t_output = self.consent._extract_footnotes(text_extract, footnote_pattern = r'')
+        assert len(f_array) == 0
+        assert t_output == text_extract
+        f_array, t_output = self.consent._extract_footnotes(text_extract, footnote_pattern = '')
+        assert len(f_array) == 0
+        assert t_output == text_extract
+
+
 
     def test__format_line(self):
         text_extract = "Some text here"
