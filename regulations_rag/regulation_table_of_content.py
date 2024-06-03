@@ -169,6 +169,8 @@ class StandardTableOfContent(TableOfContent):
             try:
                 heading_text = row['text'] if row['heading'] else ''
 
+                heading_text = remove_footnotes(heading_text)
+
                 if not index_checker.is_valid(row['section_reference']):
                     raise ValueError(row['section_reference'] + ' is not a valid reference. See row ' + str(i))
 
@@ -179,6 +181,22 @@ class StandardTableOfContent(TableOfContent):
                 logger.error(regulation_df.iloc[i])
                 logger.error(f"Error message: {e}")
                 break
+
+    def remove_footnotes(self, text):
+        footnote_pattern = r'\[\^\d+\]\:'
+
+        lines = text.split('\n')
+        footnotes = []
+        remaining_text = []
+        for line in lines:
+            if re.match(footnote_pattern, line):
+                footnotes.append(line)
+            else:
+                remaining_text.append(line)
+        text = '\n'.join(remaining_text)
+        result = re.sub(r'\[\^\d+\]', '', text)
+        return result
+
 
     def check_columns(self):
         ''' 
