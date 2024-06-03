@@ -169,7 +169,7 @@ class StandardTableOfContent(TableOfContent):
             try:
                 heading_text = row['text'] if row['heading'] else ''
 
-                heading_text = remove_footnotes(heading_text)
+                heading_text = self.remove_footnotes(heading_text)
 
                 if not index_checker.is_valid(row['section_reference']):
                     raise ValueError(row['section_reference'] + ' is not a valid reference. See row ' + str(i))
