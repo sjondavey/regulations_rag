@@ -23,13 +23,6 @@ class Document(ABC):
     def get_toc(self):
         pass
 
-    def _get_default_toc(self, root_node_name, df):
-        ''' 
-        NOTE: df must have columns "section_reference", "text" and "heading" (boolean)
-        '''
-        df = pd.read_parquet(path_to_manual_as_csv_file, engine='pyarrow')
-        return StandardTableOfContent(root_node_name = root_node_name, index_checker = self.reference_checker, regulation_df = df)
-
     def _extract_footnotes(self, text, footnote_pattern):
         ''' 
         This assumes that the DataFrame that stores the document is formatted such that the footnotes are saved with the paragraph of text that
