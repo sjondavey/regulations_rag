@@ -105,3 +105,40 @@ class GDPR(Document):
         return formatted_regulation
 
 
+        def get_toc(self):
+            # create the dataframe using chapters and articles
+            gdpr_data_for_tree = []
+            chapter_number = ""
+            article_number = 0
+
+            for index, row in df.iterrows():
+                if row["chapter_number"] != chapter_number:
+                    chapter_number = row["chapter_number"]
+                    section_number = ""
+                    gdpr_data_for_tree.append([row["chapter_number"], True, row["chapter_heading"]])
+
+                if row["article_number"] != article_number:
+                    article_number = row["article_number"]
+                    gdpr_data_for_tree.append([f'{chapter_number}.{row["article_number"]}', True, row["article_heading"]])
+
+            gdpr_df_for_tree = pd.DataFrame(gdpr_data_for_tree, columns = ["section_reference", "heading", "text"])
+
+            return StandardTableOfContent(root_node_name = document_name, index_checker = self.GDPRToCReferenceChecker(), regulation_df = gdpr_df_for_tree)
+
+    # Reference checker for TOC only
+    class GDPRToCReferenceChecker(ReferenceChecker):
+        def __init__(self):
+            exclusion_list = []
+
+            gdpr_index_patterns = [
+                r'^\b(I|II|III|IV|V|VI|VII|VIII|IX|X|XI)\b',
+                r'^\.\d{1,2}',   # Matches numbers, excluding leading zeros. - Article Number
+            ]
+            
+            # ^Article : Matches the beginning of the string, followed by "Article ". - mandatory
+            # (\d{1,2}): Captures a one or two digit number immediately following "Article ". - mandatory
+            # (?:\((\d{1,2})\))?: An optional non-capturing group that contains a capturing group for a one or two digit number enclosed in parentheses. The entire group is made optional by ?, so it matches 0 or 1 times.
+            # (?:\(([a-z])\))?: Another optional non-capturing group that contains a capturing group for a single lowercase letter enclosed in parentheses. This part is also optional.
+            text_pattern = r'((I|II|III|IV|V|VI|VII|VIII|IX|X|XI))(?:\((\d{1,2})\))?'
+
+            super().__init__(regex_list_of_indices = gdpr_index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)

@@ -3,6 +3,8 @@ import re
 import pandas as pd
 from abc import ABC, abstractmethod
 from regulations_rag.reference_checker import ReferenceChecker
+from regulations_rag.regulation_table_of_content import StandardTableOfContent
+
 
 
 class Document(ABC):
@@ -16,6 +18,17 @@ class Document(ABC):
         NOTE: When used with the Table of Content to break up a document into chunks, the call to get_text("") should return the entire text of the document
         '''
         pass
+
+    @abstractmethod
+    def get_toc(self):
+        pass
+
+    def _get_default_toc(self, root_node_name, df):
+        ''' 
+        NOTE: df must have columns "section_reference", "text" and "heading" (boolean)
+        '''
+        df = pd.read_parquet(path_to_manual_as_csv_file, engine='pyarrow')
+        return StandardTableOfContent(root_node_name = root_node_name, index_checker = self.reference_checker, regulation_df = df)
 
     def _extract_footnotes(self, text, footnote_pattern):
         ''' 
