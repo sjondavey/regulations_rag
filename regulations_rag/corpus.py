@@ -17,9 +17,9 @@ class Corpus():
         doc = self.get_document(document_name)
         return doc.get_heading(section_reference)
 
-    def get_text(self, document_name, section_reference):
+    def get_text(self, document_name, section_reference, add_markdown_decorators = True):
         doc = self.get_document(document_name)
-        return doc.get_text(section_reference)
+        return doc.get_text(section_reference, add_markdown_decorators)
 
 
 def create_document_dictionary_from_folder(folder_name, namespace_dict=None):
