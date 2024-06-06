@@ -100,6 +100,7 @@ class Document(ABC):
                     text += "\n"    
                 text += self._format_line(row, text_extract, add_markdown_decorators)
 
+            
             parent = self.reference_checker.get_parent_reference(section_reference)
             build_up = ""
             while parent != "":

@@ -164,7 +164,8 @@ class ReferenceChecker:
             ValueError: If the input_string is empty or if valid components cannot be extracted from it.
         """        
         if input_string == "":
-            raise ValueError(f"Unable to get parent string for empty input")
+            return ""
+            #raise ValueError(f"Unable to get parent string for empty input")
 
         split_reference = self.split_reference(input_string)
 
