@@ -3,7 +3,7 @@ import pandas as pd
 from regulations_rag.regulation_reader import  load_csv_data
 from regulations_rag.document import Document
 from regulations_rag.reference_checker import ReferenceChecker
-
+from regulations_rag.regulation_table_of_content import StandardTableOfContent
 
 
 class Consent(Document):
@@ -32,11 +32,12 @@ class Consent(Document):
         return True
 
 
-    def get_text(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):               
-        return super().get_text_for_section_only(section_reference, add_markdown_decorators, footnote_pattern)
+    def get_text(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):               
+        text, footnotes = super().get_text_and_footnotes(section_reference, add_markdown_decorators, add_headings, section_only)
+        return super()._format_text_and_footnotes(text, footnotes)
 
-    def get_heading(self, section_reference, add_markdown_decorators = False, footnote_pattern = r'^\[\^\d+\]\:'):
-        return super().get_heading(section_reference, add_markdown_decorators, footnote_pattern)
+    def get_heading(self, section_reference, add_markdown_decorators = False):
+        return super().get_heading(section_reference, add_markdown_decorators)
 
     def get_toc(self):
         return StandardTableOfContent(root_node_name = self.name, index_checker = self.reference_checker, regulation_df = self.document_as_df)

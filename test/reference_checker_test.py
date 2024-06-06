@@ -74,8 +74,10 @@ class TestReferenceChecker:
     def test_get_parent_reference(self):
         reference = 'G.1(C)(xviii)(c)(dd)(9)'
         assert self.reference_checker.get_parent_reference(reference) == 'G.1(C)(xviii)(c)(dd)'
-        with pytest.raises(ValueError):
-            components = self.reference_checker.get_parent_reference("")
+        # with pytest.raises(ValueError):
+        #     components = self.reference_checker.get_parent_reference("")
+        components = self.reference_checker.get_parent_reference("")
+        assert components == ""
 
     def test_get_current_and_parent_references(self):
         reference = 'G.1(C)(xviii)(c)(dd)(9)'

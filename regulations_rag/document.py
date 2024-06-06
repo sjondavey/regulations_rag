@@ -13,11 +13,18 @@ class Document(ABC):
         self.reference_checker = reference_checker
 
     @abstractmethod    
-    def get_text(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):
+    def get_text(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):
         '''
         NOTE: When used with the Table of Content to break up a document into chunks, the call to get_text("") should return the entire text of the document
         '''
         pass
+
+    # @abstractmethod    
+    # def get_text(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):
+    #     '''
+    #     NOTE: When used with the Table of Content to break up a document into chunks, the call to get_text("") should return the entire text of the document
+    #     '''
+    #     pass
 
     @abstractmethod
     def get_toc(self):
@@ -72,7 +79,7 @@ class Document(ABC):
                 return text_extract + "\n"
 
 
-    def get_text_for_section_only(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):
+    def get_text_and_footnotes(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):
         ''' 
         A commonly used pattern for traditional documents where we select only the text "below" and the headings and stop when we reach the next heading
         - even if that is a sub - heading. We also do not select any text from "above" the section reference. 
@@ -82,6 +89,7 @@ class Document(ABC):
         if section_reference != "" and not self.reference_checker.is_valid(section_reference):
             return "" 
         else:
+            footnote_pattern = r'^\[\^\d+\]\:'
 
             text = ""
             all_footnotes = []
@@ -91,7 +99,7 @@ class Document(ABC):
                 subset = self.document_as_df[self.document_as_df["section_reference"] == section_reference] 
 
             if len(subset) == 0:
-                return ""
+                return "", []
             for index, row in subset.iterrows():
                 footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
                 text_extract = text_extract.strip()
@@ -100,33 +108,52 @@ class Document(ABC):
                     text += "\n"    
                 text += self._format_line(row, text_extract, add_markdown_decorators)
 
+            if add_headings:
+                build_up = ""
+                buildup_footnotes = []
+                parent = self.reference_checker.get_parent_reference(section_reference)
+                while parent != "":
+                    subset = self.document_as_df[self.document_as_df["section_reference"] == parent]
+                    for index, row in subset[::-1].iterrows(): # backwards
+                        if row["heading"]:
+                            footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
+                            text_extract = text_extract.strip()
+                            buildup_footnotes = buildup_footnotes + footnotes
+                            build_up = self._format_line(row, text_extract, add_markdown_decorators) + build_up
 
-            parent = self.reference_checker.get_parent_reference(section_reference)
-            build_up = ""
-            while parent != "":
-                subset = self.document_as_df[self.document_as_df["section_reference"] == parent]
-                for index, row in subset[::-1].iterrows(): # backwards
-                    if row["heading"]:
-                        footnotes, text_extract = self._extract_footnotes(row["text"], footnote_pattern)
-                        text_extract = text_extract.strip()
-                        all_footnotes = all_footnotes + footnotes
-                        build_up = self._format_line(row, text_extract, add_markdown_decorators) + build_up
+                    parent = self.reference_checker.get_parent_reference(parent)
 
-
-                parent = self.reference_checker.get_parent_reference(parent)
-            if build_up != "":
                 text = build_up + text
-            for footnote in all_footnotes:
-                text = text + "  \n" + footnote
+                all_footnotes = buildup_footnotes + all_footnotes
 
-            return text.strip()
+            if section_reference != "" and not section_only:
+                children = ""
+                children_footnotes = []
+                toc = self.get_toc()
+                children_nodes = toc.get_node(section_reference).children
+                for child_node in children_nodes:
+                    child_section_reference = child_node.full_node_name # could be empty ?
+                    if child_section_reference != "":
+                        child_text, child_footnotes = self.get_text_and_footnotes(child_section_reference, add_markdown_decorators, add_headings = False, section_only = section_only)
+                        text = text + child_text
+                        all_footnotes = all_footnotes + child_footnotes
+
+        return text, all_footnotes
+
+    def _format_text_and_footnotes(self, text, footnotes):
+        text = text.strip() + "\n\n"
+        for footnote in footnotes:
+            text = text + "  \n" + footnote.strip() 
+
+        return text.strip()
 
 
-    def get_heading(self, section_reference, add_markdown_decorators = False, footnote_pattern = r'^\[\^\d+\]\:'):
+    def get_heading(self, section_reference, add_markdown_decorators = False):
         '''
         Some heading have footnotes :-(
         No markdown formatting is added to the heading text
         '''
+        footnote_pattern = r'^\[\^\d+\]\:'
         if not self.reference_checker.is_valid(section_reference):
             return "" 
         else:
@@ -281,4 +308,43 @@ class TESTDocument(Document):
                 text = text + all_qualifiers
 
         return text
+
+    def get_toc(self):
+        # create the dataframe using chapters and articles
+        gdpr_data_for_tree = []
+        chapter_number = ""
+        article_number = 0
+
+        for index, row in self.document_as_df.iterrows():
+            if row["chapter_number"] != chapter_number:
+                chapter_number = row["chapter_number"]
+                section_number = ""
+                gdpr_data_for_tree.append([row["chapter_number"], True, row["chapter_heading"]])
+
+            if row["article_number"] != article_number:
+                article_number = row["article_number"]
+                gdpr_data_for_tree.append([f'{chapter_number}.{row["article_number"]}', True, row["article_heading"]])
+
+        gdpr_df_for_tree = pd.DataFrame(gdpr_data_for_tree, columns = ["section_reference", "heading", "text"])
+
+        return StandardTableOfContent(root_node_name = self.name, index_checker = self.GDPRToCReferenceChecker(), regulation_df = gdpr_df_for_tree)
+
+    # Reference checker for TOC only
+    class GDPRToCReferenceChecker(ReferenceChecker):
+        def __init__(self):
+            exclusion_list = []
+
+            gdpr_index_patterns = [
+                r'^\b(I|II|III|IV|V|VI|VII|VIII|IX|X|XI)\b',
+                r'^\.\d{1,2}',   # Matches numbers, excluding leading zeros. - Article Number
+            ]
+            
+            # ^Article : Matches the beginning of the string, followed by "Article ". - mandatory
+            # (\d{1,2}): Captures a one or two digit number immediately following "Article ". - mandatory
+            # (?:\((\d{1,2})\))?: An optional non-capturing group that contains a capturing group for a one or two digit number enclosed in parentheses. The entire group is made optional by ?, so it matches 0 or 1 times.
+            # (?:\(([a-z])\))?: Another optional non-capturing group that contains a capturing group for a single lowercase letter enclosed in parentheses. This part is also optional.
+            text_pattern = r'((I|II|III|IV|V|VI|VII|VIII|IX|X|XI))(?:\((\d{1,2})\))?'
+
+            super().__init__(regex_list_of_indices = gdpr_index_patterns, text_version = text_pattern, exclusion_list=exclusion_list)
+
 
