@@ -74,10 +74,12 @@ class Document(ABC):
 
     def get_text_for_section_only(self, section_reference, add_markdown_decorators = True, footnote_pattern = r'^\[\^\d+\]\:'):
         ''' 
-        A commonly used pattern for traditional documents where we select only the text "below" and the headings "above" the section reference. 
-        Contrast this with a pattern used in legal documents where we would also select the text "above" the section reference back to the root node
+        A commonly used pattern for traditional documents where we select only the text "below" and the headings and stop when we reach the next heading
+        - even if that is a sub - heading. We also do not select any text from "above" the section reference. 
+        Contrast this with a pattern used in legal documents where we would also select the text, all sub-sections and any text "above" the section reference
+        back to the root node
         '''
-        if not (section_reference == "" or self.reference_checker.is_valid(section_reference)):
+        if not self.reference_checker.is_valid(section_reference):
             return "" 
         else:
 
