@@ -79,7 +79,7 @@ class Document(ABC):
         Contrast this with a pattern used in legal documents where we would also select the text, all sub-sections and any text "above" the section reference
         back to the root node
         '''
-        if not self.reference_checker.is_valid(section_reference):
+        if section_reference != "" and not self.reference_checker.is_valid(section_reference):
             return "" 
         else:
 
@@ -100,7 +100,7 @@ class Document(ABC):
                     text += "\n"    
                 text += self._format_line(row, text_extract, add_markdown_decorators)
 
-            
+
             parent = self.reference_checker.get_parent_reference(section_reference)
             build_up = ""
             while parent != "":
