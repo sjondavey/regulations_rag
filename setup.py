@@ -5,16 +5,16 @@ def parse_requirements(filename):
     with open(filename, 'r') as file:
         requirements = file.readlines()
     requirements = [r.strip() for r in requirements]
-    # Exclude specific lines such as comments or empty lines
     requirements = [r for r in requirements if r and not r.startswith('#')]
-    # Here you can also add logic to handle package versioning more gracefully
     return requirements
 
-# Usage
 requirements = parse_requirements('requirements.txt')
 
 setup(
     name='regulations_rag',
-    version='0.6.2.6',
+    version='0.6.2.7',
+    packages=find_packages(),  # Automatically find and include packages
     install_requires=requirements,
+    include_package_data=True,  # Ensure package data files are included
+    zip_safe=False  # Set to False if you are unsure about zip compatibility
 )

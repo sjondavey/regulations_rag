@@ -17,9 +17,13 @@ class Corpus():
         doc = self.get_document(document_name)
         return doc.get_heading(section_reference)
 
-    def get_text(self, document_name, section_reference, add_markdown_decorators = True):
+    # The problem with this is that it does not allow for different default settings of the variables 
+    #   add_markdown_decorators, add_headings and, section_only
+    # It may be better NOT to use this method but use the get_document().get_text() method so the defaults can be implemented
+    # at the document level
+    def get_text(self, document_name, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):
         doc = self.get_document(document_name)
-        return doc.get_text(section_reference, add_markdown_decorators)
+        return doc.get_text(section_reference, add_markdown_decorators, add_headings, section_only)
 
 
 def create_document_dictionary_from_folder(folder_name, namespace_dict=None):
