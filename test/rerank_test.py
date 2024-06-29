@@ -5,7 +5,6 @@ from openai import OpenAI
 
 
 from regulations_rag.rerank import check_rerank_columns, rerank_most_common, rerank_llm
-from regulations_rag.standard_regulation_index import load_parquet_data
 
 def test_check_rerank_columns():
     df = pd.DataFrame([], columns = ["section_reference", "text", "source", "cosine_distance"])

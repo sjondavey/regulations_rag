@@ -1,6 +1,5 @@
 import re
 import pandas as pd
-from regulations_rag.regulation_reader import  load_csv_data
 from regulations_rag.document import Document
 from regulations_rag.reference_checker import ReferenceChecker
 from regulations_rag.regulation_table_of_content import StandardTableOfContent
@@ -12,7 +11,6 @@ class Consent(Document):
         reference_checker =  self.ConsentReferenceChecker()
 
 
-        #self.document_as_df = load_csv_data(path_to_file = path_to_manual_as_csv_file)
         self.document_as_df = pd.read_parquet(path_to_manual_as_parquet_file, engine = 'pyarrow')
 
         document_name = "Guidelines 05/2020 on consent under Regulation 2016/679"

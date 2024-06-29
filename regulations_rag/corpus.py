@@ -17,6 +17,17 @@ class Corpus():
         doc = self.get_document(document_name)
         return doc.get_heading(section_reference)
 
+    """ 
+    A corpus is often constructed around one main document. This document will be used in the corpus_chat class to
+    1) Define the default format of a reference. In _create_system_message, we provide an example of a document reference in the case the LLM 
+        needs an additional reference. The index_checker from the primary document will be used to create this example reference
+    2) The _check_response method if we are dealing with a response that wants more information, we check that the reference is valid for 
+        the document that generated it. Of course, the document could be making a reference to the primary document so we will also check 
+        if it refers to the primary document as well.
+    """
+    def get_primary_document(self):
+        return ""
+
     # The problem with this is that it does not allow for different default settings of the variables 
     #   add_markdown_decorators, add_headings and, section_only
     # It may be better NOT to use this method but use the get_document().get_text() method so the defaults can be implemented
