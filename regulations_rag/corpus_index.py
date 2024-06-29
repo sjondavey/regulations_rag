@@ -5,6 +5,11 @@ from abc import ABC, abstractmethod
 from regulations_rag.rerank import RerankAlgos
 from regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
 
+# Create a logger for this module
+logger = logging.getLogger(__name__)
+DEV_LEVEL = 15
+logging.addLevelName(DEV_LEVEL, 'DEV')       
+
 class CorpusIndex(ABC):
     """
     A class to handle and provide relevant sections, definitions, and workflow. This could wrap a database or a DataFrame
