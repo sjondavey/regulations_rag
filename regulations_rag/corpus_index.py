@@ -219,7 +219,7 @@ class DataFrameCorpusIndex(CorpusIndex):
         return relevant_sections
 
 
-    def get_relevant_workflow(self, user_content_embedding, threshold):
+    def get_relevant_workflow(self, user_content, user_content_embedding, threshold):
         """
         Retrieves workflow steps close to the given user content embedding if available.
 
