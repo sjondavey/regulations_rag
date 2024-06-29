@@ -7,14 +7,7 @@ import regex # fuzzy lookup of references in a section of text
 import copy
 from enum import Enum
 
-
-
-# import src.data
-# importlib.reload(src.data)
-
 from regulations_rag.string_tools import match_strings_to_reference_list
-
-from regulations_rag.regulation_reader import RegulationReader
                            
 from regulations_rag.embeddings import get_ada_embedding, \
                            get_closest_nodes, \
