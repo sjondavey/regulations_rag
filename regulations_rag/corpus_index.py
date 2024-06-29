@@ -109,11 +109,11 @@ class DataFrameCorpusIndex(CorpusIndex):
             for column in columns_in_workflow:
                 assert column in workflow.columns.to_list()
         
-        
+        self.required_columns_workflow = ["workflow", "text", "embedding"]
         super().__init__(user_type, corpus_description, corpus)
         self.definitions = index_df[index_df['source'] == 'definitions'].copy(deep=True)
         self.index = index_df[index_df['source'] != 'definitions'].copy(deep=True)
-        self.workflow = pd.DataFrame([], columns = required_columns_workflow)
+        self.workflow = pd.DataFrame([], columns = self.required_columns_workflow)
 
 
     def get_relevant_definitions(self, user_content, user_content_embedding, threshold):
@@ -231,4 +231,4 @@ class DataFrameCorpusIndex(CorpusIndex):
         if len(self.workflow) > 0:
             return get_closest_nodes(self.workflow, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)
         else:
-            return pd.DataFrame([], columns = required_columns_workflow)
+            return pd.DataFrame([], columns = self.required_columns_workflow)
