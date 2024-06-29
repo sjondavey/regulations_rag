@@ -111,9 +111,9 @@ class DataFrameCorpusIndex(CorpusIndex):
         
         self.required_columns_workflow = ["workflow", "text", "embedding"]
         super().__init__(user_type, corpus_description, corpus)
-        self.definitions = index_df[index_df['source'] == 'definitions'].copy(deep=True)
-        self.index = index_df[index_df['source'] != 'definitions'].copy(deep=True)
-        self.workflow = pd.DataFrame([], columns = self.required_columns_workflow)
+        self.definitions = definitions
+        self.index = index
+        self.workflow = workflow
 
 
     def get_relevant_definitions(self, user_content, user_content_embedding, threshold):
