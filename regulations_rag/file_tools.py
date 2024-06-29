@@ -1,5 +1,5 @@
 import os
-import pandas as PD
+import pandas as pd
 
 def load_parquet_data(path_to_file, decryption_key = ""):
     if not os.path.exists(path_to_file):
