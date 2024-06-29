@@ -47,6 +47,20 @@ logging.addLevelName(ANALYSIS_LEVEL, 'ANALYSIS')
 ###############################################
 
 
+class ChatParameters:
+    def __init__(self, chat_model, temperature, max_tokens):
+        self.model = chat_model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        self.tested_models = ["gpt-4o", "gpt-3.5-turbo", "gpt-4", "gpt-3.5-turbo-16k"]
+        untested_models = ["gpt-4-1106-preview", "gpt-4-0125-preview", "gpt-4-turbo"]
+        if self.model not in self.tested_models:
+            if self.model not in untested_models:
+                raise ValueError("You are attempting to use a model that does not seem to exist")
+            else: 
+                logger.info("You are attempting to use a model that has not been tested")
+
 
 class CorpusChat():
     class State(Enum):

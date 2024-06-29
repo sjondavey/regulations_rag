@@ -5,6 +5,23 @@ from json import loads
 from scipy.spatial import distance
 import pandas as pd
 
+class EmbeddingParameters:
+    def __init__(self, embedding_model, embedding_dimensions):
+        self.model = embedding_model
+        self.dimensions = embedding_dimensions
+
+        if embedding_model == "text-embedding-ada-002":
+            self.threshold = 0.15
+            self.dimensions = 1536 # this model does not 
+        elif embedding_model == "text-embedding-3-large":
+            if embedding_dimensions == 1024:
+                self.threshold = 0.38
+            elif embedding_dimensions == 3072:
+                self.threshold = 0.40
+        else:
+            raise ValueError("Unknown Embedding model or embedding dimension")
+
+
 def num_tokens_from_string(string: str, encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")) -> int:
     if pd.isna(string):
         return 0
