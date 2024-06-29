@@ -3,6 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from regulations_rag.rerank import RerankAlgos
+from regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
 
 class CorpusIndex(ABC):
     """
