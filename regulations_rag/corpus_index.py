@@ -104,7 +104,7 @@ class DataFrameCorpusIndex(CorpusIndex):
         columns_in_sections = ["embedding", "document", "section_reference", "source", "text"]
         for column in columns_in_sections:
             assert column in index.columns.to_list()
-        if workflow and len(workflow) > 0:
+        if not workflow.empty and len(workflow) > 0:
             columns_in_workflow = ["embedding"]
             for column in columns_in_workflow:
                 assert column in workflow.columns.to_list()
