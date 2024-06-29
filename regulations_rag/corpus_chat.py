@@ -11,7 +11,6 @@ from enum import Enum
 
 # import src.data
 # importlib.reload(src.data)
-from regulations_rag.regulation_index import RegulationIndex, EmbeddingParameters
 
 from regulations_rag.string_tools import match_strings_to_reference_list
 
@@ -20,7 +19,8 @@ from regulations_rag.regulation_reader import RegulationReader
 from regulations_rag.embeddings import get_ada_embedding, \
                            get_closest_nodes, \
                            num_tokens_from_string,  \
-                           num_tokens_from_messages
+                           num_tokens_from_messages, \
+                           EmbeddingParameters
 
 from regulations_rag.rerank import RerankAlgos, rerank
 
