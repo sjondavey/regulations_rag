@@ -546,8 +546,8 @@ class CorpusChat():
         elif self.system_state == CorpusChat.State.RAG:            
             logger.log(ANALYSIS_LEVEL, f"{self.user_name} question: {user_content}")        
             workflow_triggered, df_definitions, df_search_sections = self.similarity_search(user_content) # df_search_sections MUST not have "document"
-            if workflow_triggered:
-                workflow_triggered, df_definitions, df_search_sections = self.execute_workflow()
+            if workflow_triggered != "none":
+                workflow_triggered, df_definitions, df_search_sections = self.execute_workflow(workflow_triggered)
 
             if len(self.messages) < 2 and (len(df_definitions) + len(df_search_sections) == 0):
                 logger.log(DEV_LEVEL, "Note: Unable to find any definitions or text related to this query")
@@ -762,7 +762,7 @@ class CorpusChat():
     """ 
     returns workflow_triggered, df_definitions, df_search_sections
     """
-    def execute_workflow(self):
+    def execute_workflow(self, workflow_triggered):
         # return workflow_triggered, df_definitions, df_search_sections
         raise NotImplementedError()
 
