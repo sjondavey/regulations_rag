@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 from openai import OpenAI
 import re
+import copy
 import fnmatch
 import regex # fuzzy lookup of references in a section of text
 from enum import Enum
