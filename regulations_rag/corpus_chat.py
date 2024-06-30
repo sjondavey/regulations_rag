@@ -4,7 +4,6 @@ from openai import OpenAI
 import re
 import fnmatch
 import regex # fuzzy lookup of references in a section of text
-import copy
 from enum import Enum
 
 from regulations_rag.string_tools import match_strings_to_reference_list
