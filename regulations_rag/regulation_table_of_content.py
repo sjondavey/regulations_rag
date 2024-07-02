@@ -39,9 +39,9 @@ class TableOfContentEntry(Node):
         return self.heading_text
 
 class TableOfContent:
-    def __init__(self, root_id, index_checker):
+    def __init__(self, root_id, reference_checker):
         self.root = TableOfContentEntry(root_id, "", parent=None, heading_text='')
-        self.index_checker = index_checker
+        self.reference_checker = reference_checker
 
     def add_to_toc(self, section_reference, heading_text=''):
         """
@@ -49,7 +49,7 @@ class TableOfContent:
         section_reference identifier string. This also adds any missing parents (without headings) of the section_reference 
         all the way back to the root
 
-        This method parses the `section_reference` using the `index_checker` to navigate through the tree
+        This method parses the `section_reference` using the `reference_checker` to navigate through the tree
         and find the correct position for the new node or to update an existing section_reference.
 
         Parameters:
@@ -57,16 +57,16 @@ class TableOfContent:
         - heading_text (str, optional): The heading text for the section_reference. Defaults to an empty string.
 
         Raises:
-        - ValueError: If `section_reference` is not a valid reference according to `index_checker`.
+        - ValueError: If `section_reference` is not a valid reference according to `reference_checker`.
         """
         if section_reference == self.root.name:
             self.root.heading_text = heading_text
             return
 
-        elif not self.index_checker.is_valid(section_reference):
+        elif not self.reference_checker.is_valid(section_reference):
             raise ValueError(f'{section_reference} is not a valid section_reference reference')
 
-        node_names = self.index_checker.split_reference(section_reference)
+        node_names = self.reference_checker.split_reference(section_reference)
 
         current_parent = self.root
         full_node_name = ''
@@ -97,11 +97,11 @@ class TableOfContent:
     def get_node(self, section_reference):
         if section_reference == self.root.name:
             return self.root
-        if not self.index_checker.is_valid(section_reference):
+        if not self.reference_checker.is_valid(section_reference):
             raise ValueError(f'{section_reference} is not a valid section_reference reference')
         # Start search from the root
         current_node = self.root
-        node_names = self.index_checker.split_reference(section_reference)
+        node_names = self.reference_checker.split_reference(section_reference)
         for node_name in node_names:
             # Look for the section_reference among the children of the current section_reference
             found_node = next((node for node in current_node.children if node.name == node_name), None)
@@ -128,7 +128,7 @@ class TableOfContent:
             # If any child has non-empty heading text, print all that section_reference's children with their heading text
             for child in section_reference.children:
                 if child.parent == self.root:
-                    if child.name in self.index_checker.exclusion_list:
+                    if child.name in self.reference_checker.exclusion_list:
                         string = string + (' ' * indent + f'{child.name}\n')    
                     else:
                         string = string + (' ' * indent + f'{child.name} {child.heading_text}\n')
@@ -140,7 +140,7 @@ class TableOfContent:
 
 class StandardTableOfContent(TableOfContent):
 
-    def __init__(self, root_node_name, index_checker, regulation_df):
+    def __init__(self, root_node_name, reference_checker, regulation_df):
         """
         Constructs a regulation tree from a DataFrame containing regulation entries.
         
@@ -152,13 +152,13 @@ class StandardTableOfContent(TableOfContent):
         - root_node_name (str): The name of the root section_reference of the tree.
         - regulation_df (pd.DataFrame): DataFrame containing the regulations. Expected to have
         columns 'heading', 'text', and 'section_reference'.
-        - index_checker (object): A ReferenceChecker object.
+        - reference_checker (object): A ReferenceChecker object.
         
         
         Raises:
-        - ValueError: If any 'full_reference' in the DataFrame is not valid according to `index_checker`.
+        - ValueError: If any 'full_reference' in the DataFrame is not valid according to `reference_checker`.
         """
-        super().__init__(root_node_name, index_checker=index_checker)
+        super().__init__(root_node_name, reference_checker=reference_checker)
         self.regulation_df = regulation_df
         if not self.check_columns():
             message = f"The input DataFrame did not have the correct headings to build the StandardTableOfContent. Required columns are text, heading and section_reference"
@@ -171,7 +171,7 @@ class StandardTableOfContent(TableOfContent):
 
                 heading_text = self.remove_footnotes(heading_text).strip()
 
-                if not index_checker.is_valid(row['section_reference']):
+                if not reference_checker.is_valid(row['section_reference']):
                     raise ValueError(row['section_reference'] + ' is not a valid reference. See row ' + str(i))
 
                 super().add_to_toc(row['section_reference'], heading_text=heading_text)
@@ -225,7 +225,7 @@ def _split_recursive(node, document, table_of_content, token_limit, node_list=[]
     - node (Node): The current node being processed.
     - dataframe (pd.DataFrame): DataFrame containing the regulation details.
     - token_limit (int): The maximum allowed token count per section.
-    - index_checker (callable): Function to check if an index is valid.
+    - reference_checker (callable): Function to check if an index is valid.
     - node_list (list, optional): List to collect nodes meeting the token criteria.
     
     Returns:
@@ -262,7 +262,7 @@ def split_tree(node, document, table_of_content, token_limit):
     - node (Node): The starting node to split the tree.
     - dataframe (pd.DataFrame): DataFrame containing regulation details.
     - token_limit (int): The maximum allowed token count per section.
-    - index_checker (callable): Function to check if an index is valid.
+    - reference_checker (callable): Function to check if an index is valid.
     
     Returns:
     - pd.DataFrame: A DataFrame with columns ['section_reference', 'text', 'token_count'] for each valid section_reference.

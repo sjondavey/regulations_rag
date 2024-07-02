@@ -1,7 +1,8 @@
 import pytest
 import pandas as pd
 
-from regulations_rag.reference_checker import ReferenceChecker, EmptyReferenceChecker, MultiReferenceChecker, TESTReferenceChecker
+from regulations_rag.reference_checker import ReferenceChecker, EmptyReferenceChecker, MultiReferenceChecker
+from test.reference_checker_samples import TESTReferenceChecker, SimpleReferenceChecker
 
 class TestReferenceChecker:
 
@@ -215,3 +216,12 @@ class TestMultiReferenceChecker():
     def test_get_parent_reference(self):
         assert self.doc_ref_checker.get_parent_reference("3.4.2.1") == "3.4.2"
         assert self.doc_ref_checker.get_parent_reference("Application. Part 2") == "Application"
+
+
+class TestSimpleReferenceChecker():
+    rc = SimpleReferenceChecker()
+
+    def test_is_valid(self):
+        assert self.rc.is_valid("1")
+        assert self.rc.is_valid("1.1")
+        assert self.rc.is_valid("1.1.1")

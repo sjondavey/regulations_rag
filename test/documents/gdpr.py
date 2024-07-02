@@ -150,7 +150,7 @@ class GDPR(Document):
 
         gdpr_df_for_tree = pd.DataFrame(gdpr_data_for_tree, columns = ["section_reference", "heading", "text"])
 
-        return StandardTableOfContent(root_node_name = self.name, index_checker = self.GDPRToCReferenceChecker(), regulation_df = gdpr_df_for_tree)
+        return StandardTableOfContent(root_node_name = self.name, reference_checker = self.GDPRToCReferenceChecker(), regulation_df = gdpr_df_for_tree)
 
     class GDPRReferenceChecker(ReferenceChecker):
         def __init__(self):

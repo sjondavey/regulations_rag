@@ -89,5 +89,5 @@ class TestConsent:
     def test_toc(self):
         reference_checker = self.consent.reference_checker
         df = self.consent.document_as_df
-        toc = StandardTableOfContent(root_node_name = "Consent", index_checker = reference_checker, regulation_df = df)
+        toc = StandardTableOfContent(root_node_name = "Consent", reference_checker = reference_checker, regulation_df = df)
         assert True
