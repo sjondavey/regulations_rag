@@ -14,7 +14,7 @@ document_as_list = [
     ["1.2", True, "To Main Gate"],
     ["1.2", False, "Turn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate"],
     ["1.3", True, "To South Gate"],
-    ["1.2", False, "Turn left out driveway. Road turns left. At the first stop street, turn left. Follow road to Gate"]
+    ["1.3", False, "Turn left out driveway. Road turns left. At the first stop street, turn left. Follow road to Gate"]
 ]
 document_as_df = pd.DataFrame(document_as_list, columns=columns)
 

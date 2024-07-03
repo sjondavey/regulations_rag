@@ -28,3 +28,4 @@ class SimpleReferenceChecker(ReferenceChecker):
         super().__init__(regex_list_of_indices=simple_index_patterns, text_version=text_pattern)
 
 
+

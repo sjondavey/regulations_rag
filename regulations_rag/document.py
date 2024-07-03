@@ -80,7 +80,7 @@ class Document(ABC):
         back to the root node
         '''
         if section_reference != "" and not self.reference_checker.is_valid(section_reference):
-            return "" 
+            return "", [] 
         else:
             footnote_pattern = r'^\[\^\d+\]\:'
 

@@ -7,15 +7,15 @@ def wrr_document():
 
 def test_get_text(wrr_document):
     text = wrr_document.get_text("1.2")
-    expected_text = '# 1 Navigating Whale Rock Ridge\n\n## 1.2 To Main Gate\n\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate\n\nTurn left out driveway. Road turns left. At the first stop street, turn left. Follow road to Gate'
+    expected_text = '# 1 Navigating Whale Rock Ridge\n\n## 1.2 To Main Gate\n\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate'
     assert text == expected_text
 
     text = wrr_document.get_text("1.2", add_markdown_decorators=False)
-    expected_text = '1 Navigating Whale Rock Ridge\n1.2 To Main Gate\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate\nTurn left out driveway. Road turns left. At the first stop street, turn left. Follow road to Gate'
+    expected_text = '1 Navigating Whale Rock Ridge\n1.2 To Main Gate\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate'
     assert text == expected_text
 
     text = wrr_document.get_text("1.2", add_markdown_decorators=False, add_headings = False)
-    expected_text = '1.2 To Main Gate\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate\nTurn left out driveway. Road turns left. At the first stop street, turn left. Follow road to Gate'
+    expected_text = '1.2 To Main Gate\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate'
     assert text == expected_text
     
     text = wrr_document.get_text("1", add_markdown_decorators=False, section_only = True)
