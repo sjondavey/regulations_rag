@@ -6,6 +6,11 @@ def wrr_document():
     return WRR()
 
 def test_get_text(wrr_document):
+    #something that is not a valid reference
+    text = wrr_document.get_text("all")
+    expected_text = ""
+    assert text == expected_text
+    
     text = wrr_document.get_text("1.2")
     expected_text = '# 1 Navigating Whale Rock Ridge\n\n## 1.2 To Main Gate\n\nTurn left out driveway. Road turns left. At the first stop street, turn right. Proceed to Gate'
     assert text == expected_text

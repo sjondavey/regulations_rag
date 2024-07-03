@@ -12,10 +12,10 @@ embedding_path = "./test/inputs/"
 output_files = ["navigation_dfns.parquet", "navigation_index.parquet", "navigation_workflow.parquet"]
 
 #columns_in_dfns = ["embedding", "document", "section_reference", "text"]
-columns_in_dfns = ["document", "section_reference", "text"]
+columns_in_dfns = ["document", "section_reference", "text", "definition"]
 dfns_as_list = [
-    ["Plett", "A.1(A)", "What is the gym?"],
-    ["Plett", "A.1(A)", "What is the Robberg Nature Reserve?"],
+    ["Plett", "A.1(A)", "What is the gym?", "The Gym: The Health and Fitness Center on Piesang Valley Road"],
+    ["Plett", "A.1(A)", "What is the Robberg Nature Reserve?", "The Robberg Nature Reserve: The Cape Nature park at the end of the Robberg Peninsula"],
 ]
 df_dfns = pd.DataFrame(dfns_as_list, columns = columns_in_dfns)
 

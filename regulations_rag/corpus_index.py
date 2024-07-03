@@ -106,7 +106,8 @@ An instance of the Corpus Index if the data is contained in DataFrames rather th
 """
 class DataFrameCorpusIndex(CorpusIndex):
     def __init__(self, user_type, corpus_description, corpus, definitions, index, workflow):
-        columns_in_dfns = ["embedding", "document", "section_reference", "text"]
+        # note: text is the thing that gets embedded but the actual definition is stored in 'definition'
+        columns_in_dfns = ["embedding", "document", "section_reference", "text", "definition"]
         for column in columns_in_dfns:
             assert column in definitions.columns.to_list()
         columns_in_sections = ["embedding", "document", "section_reference", "source", "text"]
