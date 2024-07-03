@@ -209,7 +209,7 @@ class DataFrameCorpusIndex(CorpusIndex):
             reranked_sections = rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo).copy(deep=True)        
             capped_sections = self.cap_rag_section_token_length(reranked_sections, rerank_algo.params["final_token_cap"])
             relevant_sections = capped_sections
-            relevant_sections["regulation_text"] = relevant_sections.apply(lambda row: self.corpus.get_text(row["document"], row["section_reference"]), axis=1)
+            relevant_sections["regulation_text"] = relevant_sections.apply(lambda row: self.corpus.get_text(row["document"], row["section_reference"], add_markdown_decorators = False), axis=1)
         else:
             logger.log(DEV_LEVEL, "--   No relevant sections found")
             columns = self.index.columns.to_list()

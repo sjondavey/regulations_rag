@@ -449,7 +449,7 @@ class TestCorpusChat:
         testing = True # don't make call to openai API, use the canned response below
         flag = "ANSWER:"
         input_response = 'Drive to West Gate. Reference: 2'
-        output_response = 'Yes, there is a derogation for organizations with fewer than 250 employees with regard to record-keeping under Article 30 of the GDPR. However, this derogation is not absolute and does not apply to processing that is likely to result in a risk to the rights and freedoms of data subjects, processing that is not occasional, or processing that includes special categories of data or personal data relating to criminal convictions and offences. Therefore, small companies may be exempt from the record-keeping obligation if they meet the criteria specified in Article 30(5).  \nReference:  \nSection all from WORKING PARTY 29 POSITION PAPER on the derogations from the obligation to maintain records of processing activities pursuant to Article 30(5) GDPR'
+        output_response = 'Drive to West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
         manual_responses_for_testing = [flag + input_response]
         self.chat.user_provides_input(user_content,
                                        testing = testing,
@@ -458,116 +458,105 @@ class TestCorpusChat:
         assert self.chat.messages[-1]["content"].strip() == output_response
         assert self.chat.system_state == self.chat.State.RAG # rag
         assert self.chat.messages[-2]["role"] == "user"
-        assert self.chat.messages[-2]["content"].strip() == 'Question: Are there exemptions from GDPR for small companies?\n\nExtract 1:\n# 2 Material scope\n\n&nbsp;&nbsp;&nbsp;&nbsp;1. This Regulation applies to the processing of personal data wholly or partly by automated means and to the processing other than by automated means of personal data which form part of a filing system or are intended to form part of a filing system.\n\n&nbsp;&nbsp;&nbsp;&nbsp;2. This Regulation does not apply to the processing of personal data:\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(a) in the course of an activity which falls outside the scope of Union law;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(b) by the Member States when carrying out activities which fall within the scope of Chapter 2 of Title V of the TEU;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(c) by a natural person in the course of a purely personal or household activity;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(d) by competent authorities for the purposes of the prevention, investigation, detection or prosecution of criminal offences or the execution of criminal penalties, including the safeguarding against and the prevention of threats to public security.\n\n&nbsp;&nbsp;&nbsp;&nbsp;3. For the processing of personal data by the Union institutions, bodies, offices and agencies, Regulation (EC) No 45/2001 applies. Regulation (EC) No 45/2001 and other Union legal acts applicable to such processing of personal data shall be adapted to the principles and rules of this Regulation in accordance with Article 98.\n\n&nbsp;&nbsp;&nbsp;&nbsp;4. This Regulation shall be without prejudice to the application of Directive 2000/31/EC, in particular of the liability rules of intermediary service providers in Articles 12 to 15 of that Directive.\n\n\nExtract 2:\n\nThe Working Party 29 has examined the obligation, under Article 30 of the GDPR, for controllers and processors to maintain a record of processing activities. This paper sets out the WP29\'s position on the derogation from this obligation. Recital 13 of the GDPR says:\n\'To take account of the specific situation of micro, small and medium-sized enterprises, this Regulation includes a derogation for organisations with fewer than 250 employees with regard to record-keeping\'.\nArticle 30(5) gives effect to Recital 13. It says that the obligation to keep a record of processing activities does not apply \'to an enterprise or an organisation employing fewer than 250 persons unless the processing it carries out is likely to result in a risk to the rights and freedoms of data subjects, the processing is not occasional, or the processing includes special categories of data as referred to in Article 9(1) or personal data relating to criminal convictions and offences referred to in Article 10.\' Some clarifications on the interpretation of this provision appear necessary, as shown by the high number of requests coming from companies and received in the last few months by national Supervisory Authorities.\nThe derogation provided by Article 30(5) is not absolute. There are three types of processing to which it does not apply. These are:\n·         Processing that is likely to result in a risk to the rights and freedoms of data subjects.\n·         Processing that is not occasional.\n·         Processing that includes special categories of data or personal data relating to criminal convictions and offences.\n\nThe WP29 underlines that the wording of Article 30(5) is clear in providing that the three types of processing to which the derogation does not apply are alternative ("or") and the occurrence of any one of them alone triggers the obligation to maintain the record of processing activities.\nTherefore, although endowed with less than 250 employees, data controllers or processors who find themselves in the position of either carrying out processing likely to result in a risk (not just a high risk) to the rights of the data subjects, or processing personal data on a non-occasional basis, or processing special categories of data under Article 9(1) or data relating to criminal convictions under Article 10 are obliged to maintain the record of processing activities. \nHowever, such organisations need only maintain records of processing activities for the types of processing mentioned by Article 30(5).\nFor example, a small organisation is likely to regularly process data regarding its employees. As a result, such processing cannot be considered "occasional" and must therefore be included in the record of processing activities.1 Other processing activities which are in fact "occasional", however, do not need to be included in the record of processing activities, provided they are unlikely to result in a risk to the right and freedoms of data subjects and do not involve special categories of data or personal data relating to criminal convictions and offences.\nThe WP29 highlights that the record of processing activities is a very useful means to support an analysis of the implications of any processing whether existing or planned. The record facilitates the factual assessment of the risk of the processing activities performed by a controller or processor on individuals\' rights, and the identification and implementation of appropriate security measures to safeguard personal data – both key components of the principle of accountability contained in the GDPR.\nFor many micro, small and medium-sized organisations, maintaining a record of processing activities is unlikely to constitute a particularly heavy burden. However, the WP29 recognises that Article 30 represents a new administrative requirement for controllers and processors, and therefore encourages national Supervisory Authorities to support SMEs by providing tools to facilitate the set up and management of records of processing activities. For example, a Supervisory Authority might make available on its website a simplified model that can be used by SMEs to keep records of processing activities not covered by the derogation in Article 30(5).\n\n\n1 The WP29 considers that a processing activity can only be considered as "occasional" if it is not carried out regularly, and occurs outside the regular course of business or activity of the controller or processor. See WP29 Guidelines on Article 49 of Regulation 2016/679 (WP262).'
+        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To to Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
         assert self.chat.messages_without_rag[-2]["role"] == "user"
-        assert self.chat.messages_without_rag[-2]["content"].strip() == 'Are there exemptions from GDPR for small companies?'
+        assert self.chat.messages_without_rag[-2]["content"].strip() == 'How do I get to the Gym?'
         assert self.chat.messages_without_rag[-1]["role"] == "assistant"
         assert self.chat.messages_without_rag[-1]["content"].strip() == output_response
 
 
-#         # test the workflow if the system cannot find useful content in the supplied data
-#         self.chat.system_state = self.chat.State.RAG
-#         user_content = "Who can trade gold?" # there are hits in the KB for this
-#         testing = True # don't make call to openai API, use the canned response below
-#         flag = "NONE:"
-#         response = "None of the supplied documentation was relevant"
-#         manual_responses_for_testing = []
-#         manual_responses_for_testing.append(flag + response)
-#         self.chat.user_provides_input(user_content,
-#                                        testing = testing,
-#                                        manual_responses_for_testing = manual_responses_for_testing)
-#         assert self.chat.messages[-1]["role"] == "assistant"
-#         assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NO_RELEVANT_DATA.value
-#         assert self.chat.messages[-2]["role"] == "user"
-#         assert self.chat.messages[-2]["content"].strip() == "Question: Who can trade gold?"
-#         assert self.chat.messages_without_rag[-2]["role"] == "user"
-#         assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
-#         assert self.chat.system_state == self.chat.State.RAG
+        # test the workflow if the system cannot find useful content in the supplied data
+        self.chat.system_state = self.chat.State.RAG
+        testing = True # don't make call to openai API, use the canned response below
+        flag = "NONE:"
+        response = ""
+        manual_responses_for_testing = []
+        manual_responses_for_testing.append(flag + response)
+        self.chat.user_provides_input(user_content,
+                                       testing = testing,
+                                       manual_responses_for_testing = manual_responses_for_testing)
+        assert self.chat.messages[-1]["role"] == "assistant"
+        assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NO_RELEVANT_DATA.value
+        assert self.chat.messages[-2]["role"] == "user"
+        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To to Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        assert self.chat.messages_without_rag[-2]["role"] == "user"
+        assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
+        assert self.chat.system_state == self.chat.State.RAG
 
-#         # test the workflow if the system needs additional content
-#         self.chat.system_state = self.chat.State.RAG
-#         user_content = "Are there exemptions from GDPR for small companies?" # there are hits in the KB for this
-#         testing = True # don't make call to openai API, use the canned response below        
-#         flag = "SECTION:"
-#         response = "Extract 2, Reference 30(5)"
-#         manual_responses_for_testing = []
-#         manual_responses_for_testing.append(flag + " " + response)
-#         # now the response once it has received the additional data
-#         flag = "ANSWER:"
-#         input_response = 'Yes, there is a derogation for organizations with fewer than 250 employees with regard to record-keeping under Article 30 of the GDPR. However, this derogation is not absolute and does not apply to processing that is likely to result in a risk to the rights and freedoms of data subjects, processing that is not occasional, or processing that includes special categories of data or personal data relating to criminal convictions and offences. Therefore, small companies may be exempt from the record-keeping obligation if they meet the criteria specified in Article 30(5). Reference: 2'
-#         # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
-#         output_response = 'Yes, there is a derogation for organizations with fewer than 250 employees with regard to record-keeping under Article 30 of the GDPR. However, this derogation is not absolute and does not apply to processing that is likely to result in a risk to the rights and freedoms of data subjects, processing that is not occasional, or processing that includes special categories of data or personal data relating to criminal convictions and offences. Therefore, small companies may be exempt from the record-keeping obligation if they meet the criteria specified in Article 30(5).  \nReference:  \nSection all from WORKING PARTY 29 POSITION PAPER on the derogations from the obligation to maintain records of processing activities pursuant to Article 30(5) GDPR'
-#         manual_responses_for_testing.append(flag + input_response)
+        # test the workflow if the system needs additional content
+        self.chat.system_state = self.chat.State.RAG
+        testing = True # don't make call to openai API, use the canned response below        
+        flag = "SECTION:"
+        response = "Extract 2, Reference 1.1"
+        manual_responses_for_testing = []
+        manual_responses_for_testing.append(flag + " " + response)
+        # now the response once it has received the additional data
+        flag = "ANSWER:"
+        input_response = 'Drive to the West Gate. Reference: 2'
+        # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
+        output_response = 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
+        manual_responses_for_testing.append(flag + input_response)
 
 
-#         self.chat.user_provides_input(user_content,
-#                                        testing = testing,
-#                                        manual_responses_for_testing = manual_responses_for_testing)
+        self.chat.user_provides_input(user_content,
+                                       testing = testing,
+                                       manual_responses_for_testing = manual_responses_for_testing)
 
-#         assert self.chat.messages[-1]["role"] == "assistant"
-#         assert self.chat.messages[-1]["content"].strip() == output_response
-#         assert self.chat.messages[-2]["role"] == "user"
-#         assert self.chat.messages[-2]["content"].strip() == 'Question: Are there exemptions from GDPR for small companies?\n\nExtract 1:\n# 2 Material scope\n\n&nbsp;&nbsp;&nbsp;&nbsp;1. This Regulation applies to the processing of personal data wholly or partly by automated means and to the processing other than by automated means of personal data which form part of a filing system or are intended to form part of a filing system.\n\n&nbsp;&nbsp;&nbsp;&nbsp;2. This Regulation does not apply to the processing of personal data:\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(a) in the course of an activity which falls outside the scope of Union law;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(b) by the Member States when carrying out activities which fall within the scope of Chapter 2 of Title V of the TEU;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(c) by a natural person in the course of a purely personal or household activity;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(d) by competent authorities for the purposes of the prevention, investigation, detection or prosecution of criminal offences or the execution of criminal penalties, including the safeguarding against and the prevention of threats to public security.\n\n&nbsp;&nbsp;&nbsp;&nbsp;3. For the processing of personal data by the Union institutions, bodies, offices and agencies, Regulation (EC) No 45/2001 applies. Regulation (EC) No 45/2001 and other Union legal acts applicable to such processing of personal data shall be adapted to the principles and rules of this Regulation in accordance with Article 98.\n\n&nbsp;&nbsp;&nbsp;&nbsp;4. This Regulation shall be without prejudice to the application of Directive 2000/31/EC, in particular of the liability rules of intermediary service providers in Articles 12 to 15 of that Directive.\n\n\nExtract 2:\n\nThe Working Party 29 has examined the obligation, under Article 30 of the GDPR, for controllers and processors to maintain a record of processing activities. This paper sets out the WP29\'s position on the derogation from this obligation. Recital 13 of the GDPR says:\n\'To take account of the specific situation of micro, small and medium-sized enterprises, this Regulation includes a derogation for organisations with fewer than 250 employees with regard to record-keeping\'.\nArticle 30(5) gives effect to Recital 13. It says that the obligation to keep a record of processing activities does not apply \'to an enterprise or an organisation employing fewer than 250 persons unless the processing it carries out is likely to result in a risk to the rights and freedoms of data subjects, the processing is not occasional, or the processing includes special categories of data as referred to in Article 9(1) or personal data relating to criminal convictions and offences referred to in Article 10.\' Some clarifications on the interpretation of this provision appear necessary, as shown by the high number of requests coming from companies and received in the last few months by national Supervisory Authorities.\nThe derogation provided by Article 30(5) is not absolute. There are three types of processing to which it does not apply. These are:\n·         Processing that is likely to result in a risk to the rights and freedoms of data subjects.\n·         Processing that is not occasional.\n·         Processing that includes special categories of data or personal data relating to criminal convictions and offences.\n\nThe WP29 underlines that the wording of Article 30(5) is clear in providing that the three types of processing to which the derogation does not apply are alternative ("or") and the occurrence of any one of them alone triggers the obligation to maintain the record of processing activities.\nTherefore, although endowed with less than 250 employees, data controllers or processors who find themselves in the position of either carrying out processing likely to result in a risk (not just a high risk) to the rights of the data subjects, or processing personal data on a non-occasional basis, or processing special categories of data under Article 9(1) or data relating to criminal convictions under Article 10 are obliged to maintain the record of processing activities. \nHowever, such organisations need only maintain records of processing activities for the types of processing mentioned by Article 30(5).\nFor example, a small organisation is likely to regularly process data regarding its employees. As a result, such processing cannot be considered "occasional" and must therefore be included in the record of processing activities.1 Other processing activities which are in fact "occasional", however, do not need to be included in the record of processing activities, provided they are unlikely to result in a risk to the right and freedoms of data subjects and do not involve special categories of data or personal data relating to criminal convictions and offences.\nThe WP29 highlights that the record of processing activities is a very useful means to support an analysis of the implications of any processing whether existing or planned. The record facilitates the factual assessment of the risk of the processing activities performed by a controller or processor on individuals\' rights, and the identification and implementation of appropriate security measures to safeguard personal data – both key components of the principle of accountability contained in the GDPR.\nFor many micro, small and medium-sized organisations, maintaining a record of processing activities is unlikely to constitute a particularly heavy burden. However, the WP29 recognises that Article 30 represents a new administrative requirement for controllers and processors, and therefore encourages national Supervisory Authorities to support SMEs by providing tools to facilitate the set up and management of records of processing activities. For example, a Supervisory Authority might make available on its website a simplified model that can be used by SMEs to keep records of processing activities not covered by the derogation in Article 30(5).\n\n\n1 The WP29 considers that a processing activity can only be considered as "occasional" if it is not carried out regularly, and occurs outside the regular course of business or activity of the controller or processor. See WP29 Guidelines on Article 49 of Regulation 2016/679 (WP262). \n\nExtract 3:\n# 30 Records of processing activities\n\n&nbsp;&nbsp;&nbsp;&nbsp;5. The obligations referred to in paragraphs 1 and 2 shall not apply to an enterprise or an organisation employing fewer than 250 persons unless the processing it carries out is likely to result in a risk to the rights and freedoms of data subjects, the processing is not occasional, or the processing includes special categories of data as referred to in Article 9(1) or personal data relating to criminal convictions and offences referred to in Article 10.'
-#         assert self.chat.messages_without_rag[-2]["role"] == "user"
-#         assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
-#         assert self.chat.system_state == self.chat.State.RAG
+        assert self.chat.messages[-1]["role"] == "assistant"
+        assert self.chat.messages[-1]["content"].strip() == output_response
+        assert self.chat.messages[-2]["role"] == "user"
+        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To to Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nExtract 3:\n# 1 Navigating Whale Rock Ridge\n\n## 1.1 To West Gate\n\nTurn right out driveway. At the traffic circle, take the first exit. Proceed to West Gate'
+        assert self.chat.messages_without_rag[-2]["role"] == "user"
+        assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
+        assert self.chat.system_state == self.chat.State.RAG
 
 
 
-#         # Test what happens if it calls for a section that it already has
-#         self.chat.reset_conversation_history()
-#         self.chat.system_state = self.chat.State.RAG
-#         user_content = "Are there exemptions from GDPR for small companies?" # there are hits in the KB for this
-#         testing = True # don't make call to openai API, use the canned response below        
-#         flag = "SECTION:"
-#         response = "Extract 2, Reference 2"
-#         manual_responses_for_testing = []
-#         manual_responses_for_testing.append(flag + " " + response)
-#         # now the response once it has received the additional data
-#         flag = "ANSWER:"
-#         input_response = 'Yes, there is a derogation for organizations with fewer than 250 employees with regard to record-keeping under Article 30 of the GDPR. However, this derogation is not absolute and does not apply to processing that is likely to result in a risk to the rights and freedoms of data subjects, processing that is not occasional, or processing that includes special categories of data or personal data relating to criminal convictions and offences. Therefore, small companies may be exempt from the record-keeping obligation if they meet the criteria specified in Article 30(5). Reference: 2'
-#         # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
-#         manual_responses_for_testing.append(flag + input_response)
-#         self.chat.user_provides_input(user_content,
-#                                        testing = testing,
-#                                        manual_responses_for_testing = manual_responses_for_testing)
+        # Test what happens if it calls for a section that it already has
+        self.chat.reset_conversation_history()
+        self.chat.system_state = self.chat.State.RAG
+        testing = True # don't make call to openai API, use the canned response below        
+        flag = "SECTION:"
+        response = "Extract 2, Reference A.2(A)(i)"
+        manual_responses_for_testing = []
+        manual_responses_for_testing.append(flag + " " + response)
+        # now the response once it has received the additional data
+        flag = "ANSWER:"
+        input_response = 'Drive to the West Gate. Reference: 2'
+        # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
+        manual_responses_for_testing.append(flag + input_response)
+        self.chat.user_provides_input(user_content,
+                                       testing = testing,
+                                       manual_responses_for_testing = manual_responses_for_testing)
 
-#         assert self.chat.messages[-1]["role"] == "assistant"
-#         assert self.chat.messages[-1]["content"].strip() == 'Yes, there is a derogation for organizations with fewer than 250 employees with regard to record-keeping under Article 30 of the GDPR. However, this derogation is not absolute and does not apply to processing that is likely to result in a risk to the rights and freedoms of data subjects, processing that is not occasional, or processing that includes special categories of data or personal data relating to criminal convictions and offences. Therefore, small companies may be exempt from the record-keeping obligation if they meet the criteria specified in Article 30(5).  \nReference:  \nSection all from WORKING PARTY 29 POSITION PAPER on the derogations from the obligation to maintain records of processing activities pursuant to Article 30(5) GDPR'
-#         assert self.chat.messages[-2]["role"] == "user"
-#         assert self.chat.messages[-2]["content"].strip() == 'Question: Are there exemptions from GDPR for small companies?\n\nExtract 1:\n# 2 Material scope\n\n&nbsp;&nbsp;&nbsp;&nbsp;1. This Regulation applies to the processing of personal data wholly or partly by automated means and to the processing other than by automated means of personal data which form part of a filing system or are intended to form part of a filing system.\n\n&nbsp;&nbsp;&nbsp;&nbsp;2. This Regulation does not apply to the processing of personal data:\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(a) in the course of an activity which falls outside the scope of Union law;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(b) by the Member States when carrying out activities which fall within the scope of Chapter 2 of Title V of the TEU;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(c) by a natural person in the course of a purely personal or household activity;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(d) by competent authorities for the purposes of the prevention, investigation, detection or prosecution of criminal offences or the execution of criminal penalties, including the safeguarding against and the prevention of threats to public security.\n\n&nbsp;&nbsp;&nbsp;&nbsp;3. For the processing of personal data by the Union institutions, bodies, offices and agencies, Regulation (EC) No 45/2001 applies. Regulation (EC) No 45/2001 and other Union legal acts applicable to such processing of personal data shall be adapted to the principles and rules of this Regulation in accordance with Article 98.\n\n&nbsp;&nbsp;&nbsp;&nbsp;4. This Regulation shall be without prejudice to the application of Directive 2000/31/EC, in particular of the liability rules of intermediary service providers in Articles 12 to 15 of that Directive.\n\n\nExtract 2:\n\nThe Working Party 29 has examined the obligation, under Article 30 of the GDPR, for controllers and processors to maintain a record of processing activities. This paper sets out the WP29\'s position on the derogation from this obligation. Recital 13 of the GDPR says:\n\'To take account of the specific situation of micro, small and medium-sized enterprises, this Regulation includes a derogation for organisations with fewer than 250 employees with regard to record-keeping\'.\nArticle 30(5) gives effect to Recital 13. It says that the obligation to keep a record of processing activities does not apply \'to an enterprise or an organisation employing fewer than 250 persons unless the processing it carries out is likely to result in a risk to the rights and freedoms of data subjects, the processing is not occasional, or the processing includes special categories of data as referred to in Article 9(1) or personal data relating to criminal convictions and offences referred to in Article 10.\' Some clarifications on the interpretation of this provision appear necessary, as shown by the high number of requests coming from companies and received in the last few months by national Supervisory Authorities.\nThe derogation provided by Article 30(5) is not absolute. There are three types of processing to which it does not apply. These are:\n·         Processing that is likely to result in a risk to the rights and freedoms of data subjects.\n·         Processing that is not occasional.\n·         Processing that includes special categories of data or personal data relating to criminal convictions and offences.\n\nThe WP29 underlines that the wording of Article 30(5) is clear in providing that the three types of processing to which the derogation does not apply are alternative ("or") and the occurrence of any one of them alone triggers the obligation to maintain the record of processing activities.\nTherefore, although endowed with less than 250 employees, data controllers or processors who find themselves in the position of either carrying out processing likely to result in a risk (not just a high risk) to the rights of the data subjects, or processing personal data on a non-occasional basis, or processing special categories of data under Article 9(1) or data relating to criminal convictions under Article 10 are obliged to maintain the record of processing activities. \nHowever, such organisations need only maintain records of processing activities for the types of processing mentioned by Article 30(5).\nFor example, a small organisation is likely to regularly process data regarding its employees. As a result, such processing cannot be considered "occasional" and must therefore be included in the record of processing activities.1 Other processing activities which are in fact "occasional", however, do not need to be included in the record of processing activities, provided they are unlikely to result in a risk to the right and freedoms of data subjects and do not involve special categories of data or personal data relating to criminal convictions and offences.\nThe WP29 highlights that the record of processing activities is a very useful means to support an analysis of the implications of any processing whether existing or planned. The record facilitates the factual assessment of the risk of the processing activities performed by a controller or processor on individuals\' rights, and the identification and implementation of appropriate security measures to safeguard personal data – both key components of the principle of accountability contained in the GDPR.\nFor many micro, small and medium-sized organisations, maintaining a record of processing activities is unlikely to constitute a particularly heavy burden. However, the WP29 recognises that Article 30 represents a new administrative requirement for controllers and processors, and therefore encourages national Supervisory Authorities to support SMEs by providing tools to facilitate the set up and management of records of processing activities. For example, a Supervisory Authority might make available on its website a simplified model that can be used by SMEs to keep records of processing activities not covered by the derogation in Article 30(5).\n\n\n1 The WP29 considers that a processing activity can only be considered as "occasional" if it is not carried out regularly, and occurs outside the regular course of business or activity of the controller or processor. See WP29 Guidelines on Article 49 of Regulation 2016/679 (WP262).'
-#         assert self.chat.messages_without_rag[-2]["role"] == "user"
-#         assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
-#         assert self.chat.system_state == self.chat.State.RAG
-
-
-#         #test what happens if the LLM does not listen to instructions and returns something random
-#         self.chat.reset_conversation_history()
-#         self.chat.system_state = self.chat.State.RAG
-#         user_content = "Are there exemptions from GDPR for small companies?" # there are hits in the KB for this
-#         testing = True # don't make call to openai API, use the canned response below
-#         response = "None of the supplied documentation was relevant"
-#         manual_responses_for_testing = []
-#         manual_responses_for_testing.append(response)
-#         manual_responses_for_testing.append(response) # need to add it twice when checking this branch
-#         self.chat.user_provides_input(user_content, 
-#                                        testing = testing,
-#                                        manual_responses_for_testing = manual_responses_for_testing)
-#         assert self.chat.messages[-1]["role"] == "assistant"
-#         assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
-#         assert self.chat.messages[-2]["role"] == "user"
-#         assert self.chat.messages[-2]["content"].strip() == 'Question: Are there exemptions from GDPR for small companies?\n\nExtract 1:\n# 2 Material scope\n\n&nbsp;&nbsp;&nbsp;&nbsp;1. This Regulation applies to the processing of personal data wholly or partly by automated means and to the processing other than by automated means of personal data which form part of a filing system or are intended to form part of a filing system.\n\n&nbsp;&nbsp;&nbsp;&nbsp;2. This Regulation does not apply to the processing of personal data:\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(a) in the course of an activity which falls outside the scope of Union law;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(b) by the Member States when carrying out activities which fall within the scope of Chapter 2 of Title V of the TEU;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(c) by a natural person in the course of a purely personal or household activity;\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(d) by competent authorities for the purposes of the prevention, investigation, detection or prosecution of criminal offences or the execution of criminal penalties, including the safeguarding against and the prevention of threats to public security.\n\n&nbsp;&nbsp;&nbsp;&nbsp;3. For the processing of personal data by the Union institutions, bodies, offices and agencies, Regulation (EC) No 45/2001 applies. Regulation (EC) No 45/2001 and other Union legal acts applicable to such processing of personal data shall be adapted to the principles and rules of this Regulation in accordance with Article 98.\n\n&nbsp;&nbsp;&nbsp;&nbsp;4. This Regulation shall be without prejudice to the application of Directive 2000/31/EC, in particular of the liability rules of intermediary service providers in Articles 12 to 15 of that Directive.\n\n\nExtract 2:\n\nThe Working Party 29 has examined the obligation, under Article 30 of the GDPR, for controllers and processors to maintain a record of processing activities. This paper sets out the WP29\'s position on the derogation from this obligation. Recital 13 of the GDPR says:\n\'To take account of the specific situation of micro, small and medium-sized enterprises, this Regulation includes a derogation for organisations with fewer than 250 employees with regard to record-keeping\'.\nArticle 30(5) gives effect to Recital 13. It says that the obligation to keep a record of processing activities does not apply \'to an enterprise or an organisation employing fewer than 250 persons unless the processing it carries out is likely to result in a risk to the rights and freedoms of data subjects, the processing is not occasional, or the processing includes special categories of data as referred to in Article 9(1) or personal data relating to criminal convictions and offences referred to in Article 10.\' Some clarifications on the interpretation of this provision appear necessary, as shown by the high number of requests coming from companies and received in the last few months by national Supervisory Authorities.\nThe derogation provided by Article 30(5) is not absolute. There are three types of processing to which it does not apply. These are:\n·         Processing that is likely to result in a risk to the rights and freedoms of data subjects.\n·         Processing that is not occasional.\n·         Processing that includes special categories of data or personal data relating to criminal convictions and offences.\n\nThe WP29 underlines that the wording of Article 30(5) is clear in providing that the three types of processing to which the derogation does not apply are alternative ("or") and the occurrence of any one of them alone triggers the obligation to maintain the record of processing activities.\nTherefore, although endowed with less than 250 employees, data controllers or processors who find themselves in the position of either carrying out processing likely to result in a risk (not just a high risk) to the rights of the data subjects, or processing personal data on a non-occasional basis, or processing special categories of data under Article 9(1) or data relating to criminal convictions under Article 10 are obliged to maintain the record of processing activities. \nHowever, such organisations need only maintain records of processing activities for the types of processing mentioned by Article 30(5).\nFor example, a small organisation is likely to regularly process data regarding its employees. As a result, such processing cannot be considered "occasional" and must therefore be included in the record of processing activities.1 Other processing activities which are in fact "occasional", however, do not need to be included in the record of processing activities, provided they are unlikely to result in a risk to the right and freedoms of data subjects and do not involve special categories of data or personal data relating to criminal convictions and offences.\nThe WP29 highlights that the record of processing activities is a very useful means to support an analysis of the implications of any processing whether existing or planned. The record facilitates the factual assessment of the risk of the processing activities performed by a controller or processor on individuals\' rights, and the identification and implementation of appropriate security measures to safeguard personal data – both key components of the principle of accountability contained in the GDPR.\nFor many micro, small and medium-sized organisations, maintaining a record of processing activities is unlikely to constitute a particularly heavy burden. However, the WP29 recognises that Article 30 represents a new administrative requirement for controllers and processors, and therefore encourages national Supervisory Authorities to support SMEs by providing tools to facilitate the set up and management of records of processing activities. For example, a Supervisory Authority might make available on its website a simplified model that can be used by SMEs to keep records of processing activities not covered by the derogation in Article 30(5).\n\n\n1 The WP29 considers that a processing activity can only be considered as "occasional" if it is not carried out regularly, and occurs outside the regular course of business or activity of the controller or processor. See WP29 Guidelines on Article 49 of Regulation 2016/679 (WP262).'
-#         assert self.chat.system_state == self.chat.State.STUCK
+        assert self.chat.messages[-1]["role"] == "assistant"
+        assert self.chat.messages[-1]["content"].strip() == 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
+        assert self.chat.messages[-2]["role"] == "user"
+        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To to Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        assert self.chat.messages_without_rag[-2]["role"] == "user"
+        assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
+        assert self.chat.system_state == self.chat.State.RAG
 
 
+        #test what happens if the LLM does not listen to instructions and returns something random
+        self.chat.reset_conversation_history()
+        self.chat.system_state = self.chat.State.RAG
+        testing = True # don't make call to openai API, use the canned response below
+        response = "None of the supplied documentation was relevant"
+        manual_responses_for_testing = []
+        manual_responses_for_testing.append(response)
+        manual_responses_for_testing.append(response) # need to add it twice when checking this branch
+        self.chat.user_provides_input(user_content, 
+                                       testing = testing,
+                                       manual_responses_for_testing = manual_responses_for_testing)
+        assert self.chat.messages[-1]["role"] == "assistant"
+        assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
+        assert self.chat.messages[-2]["role"] == "user"
+        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To to Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        assert self.chat.system_state == self.chat.State.STUCK
 
 
-
-
-
-
-
-#     def test_add_section_to_resource(self):
+    def test_add_section_to_resource(self):
 #         dfns = []
 #         dfns.append(["GDPR", "4(2)", "My definition from GDPR"])
 #         dfns.append(["Article_30_5", "", "My definition from article_30_5"])
@@ -578,33 +567,42 @@ class TestCorpusChat:
 #         sections.append(["Article_30_5", "A.4(i)", "Fake section from Article_30_5"])
 #         df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
 
-#         # check if the section string passes validation but does not refer to something in the document
-#         result = {"success": True, "path": "SECTION:", "extract": 1, "document": 'GDPR', "section": "50(5)(b)"}
+        dfns = []
+        dfns.append(["WRR", "1", "My definition from WRR"])
+        dfns.append(["Plett", "A.1", "My definition from Plett"])
+        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
+        sections = []
+        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
+        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
+        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
+        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
 
-#         df_updated = self.chat.add_section_to_resource(result, df_definitions, df_search_sections)
-#         assert len(df_updated) == 3
-#         assert df_updated.iloc[0]['section_reference'] == "1"
-#         assert df_updated.iloc[1]['section_reference'] == '2'
-#         assert df_updated.iloc[2]['section_reference'] == 'A.4(i)'
+        # check if the section string passes validation but does not refer to something in the document
+        result = {"success": True, "path": "SECTION:", "extract": 1, "document": 'WRR', "section": "9.1"}
 
-#         # Adding a valid string
-#         result = {"success": True, "path": "SECTION:", "extract": 5, "document": 'GDPR', "section": "50"}
-#         df_updated = self.chat.add_section_to_resource(result, df_definitions, df_search_sections)
-#         assert len(df_updated) == 4
-#         assert df_updated.iloc[0]['section_reference'] == "1"
-#         assert df_updated.iloc[1]['section_reference'] == '2'
-#         assert df_updated.iloc[2]['section_reference'] == "A.4(i)"
-#         assert df_updated.iloc[3]['section_reference'] == '50'
+        df_updated = self.chat.add_section_to_resource(result, df_definitions, df_search_sections)
+        assert len(df_updated) == 3
+        assert df_updated.iloc[0]['section_reference'] == "1.2"
+        assert df_updated.iloc[1]['section_reference'] == '1.3'
+        assert df_updated.iloc[2]['section_reference'] == 'A.2(A)(i)'
 
+        # Adding a valid string
+        result = {"success": True, "path": "SECTION:", "extract": 5, "document": 'WRR', "section": "1.1"}
+        df_updated = self.chat.add_section_to_resource(result, df_definitions, df_search_sections)
+        assert len(df_updated) == 4
+        assert df_updated.iloc[0]['section_reference'] == "1.2"
+        assert df_updated.iloc[1]['section_reference'] == '1.3'
+        assert df_updated.iloc[2]['section_reference'] == 'A.2(A)(i)'
+        assert df_updated.iloc[3]['section_reference'] == '1.1'
 
-#         # check if the section string only comes from the definitions
-#         result = {"success": True, "path": "SECTION:", "extract": 1, "document": 'GDPR', "section": "50"}
-#         df_updated = self.chat.add_section_to_resource(result, df_definitions, df_search_sections)
-#         assert len(df_updated) == 4
-#         assert df_updated.iloc[0]['section_reference'] == "1"
-#         assert df_updated.iloc[1]['section_reference'] == '2'
-#         assert df_updated.iloc[2]['section_reference'] == "A.4(i)"
-#         assert df_updated.iloc[3]['section_reference'] == '50'
+        # check if the section string only comes from the definitions
+        result = {"success": True, "path": "SECTION:", "extract": 1, "document": 'WRR', "section": "1.1"}
+        df_updated = self.chat.add_section_to_resource(result, df_definitions, df_search_sections)
+        assert len(df_updated) == 4
+        assert df_updated.iloc[0]['section_reference'] == "1.2"
+        assert df_updated.iloc[1]['section_reference'] == '1.3'
+        assert df_updated.iloc[2]['section_reference'] == 'A.2(A)(i)'
+        assert df_updated.iloc[3]['section_reference'] == '1.1'
 
 
 # #     def test_enrich_user_request_for_documentation(self):

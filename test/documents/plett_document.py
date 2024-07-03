@@ -14,13 +14,19 @@ document_as_list = [
     ["A.1(B)", False, "The Robberg Nature Reserve: The Cape Nature park at the end of the Robberg Peninsula"],    
     ["A.2", True, "Directions"],    
     ["A.2(A)", True, "To to Gym"],
-    ["A.2(A)(i)", False, "From West Gate (see 1.1), turn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
-    ["A.2(A)(ii)", False, "From Main Gate (see 1.2), turn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
-    ["A.2(A)(iii)", False, "From South Gate (see 1.3), turn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
+    ["A.2(A)(i)", True, "From West Gate (see 1.1)"],
+    ["A.2(A)(i)", False, "Turn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
+    ["A.2(A)(ii)", True, "From Main Gate (see 1.2)"],
+    ["A.2(A)(ii)", False, "Turn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
+    ["A.2(A)(iii)", True, "From South Gate (see 1.3)"],
+    ["A.2(A)(iii)", False, "Turn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
     ["A.2(B)", True, "To Robberg Nature Reserve"],
-    ["A.2(B)(i)", False, "From West Gate (see 1.1), turn left into Longships Drive and left at the T-junction into Whale Rock Drive. Continue straight to Robberg Nature Reserve"],
-    ["A.2(B)(ii)", False, "From Main Gate (see 1.2), turn left into Whale Rock Drive. Continue straight to Robberg Nature Reserve"],
-    ["A.2(B)(iii)", False, "From South Gate (see 1.3), turn left into Whale Rock Drive. Continue straight to Robberg Nature Reserve"],
+    ["A.2(B)(i)", True, "From West Gate (see 1.1)"],
+    ["A.2(B)(i)", False, "Turn left into Longships Drive and left at the T-junction into Whale Rock Drive. Continue straight to Robberg Nature Reserve"],
+    ["A.2(B)(ii)", True, "From Main Gate (see 1.2)"],
+    ["A.2(B)(ii)", False, "Turn left into Whale Rock Drive. Continue straight to Robberg Nature Reserve"],
+    ["A.2(B)(iii)", True, "From South Gate (see 1.3)"],
+    ["A.2(B)(iii)", False, "Turn left into Whale Rock Drive. Continue straight to Robberg Nature Reserve"],
 ]
 document_as_df = pd.DataFrame(document_as_list, columns=columns)
 
@@ -50,7 +56,7 @@ class Plett(Document):
         return super()._format_line(row, text_extract, add_markdown_decorators)
 
     def get_text_and_footnotes(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):
-        return super().get_text_and_footnotes(section_reference)
+        return super().get_text_and_footnotes(section_reference, add_markdown_decorators, add_headings, section_only)
 
     def _format_text_and_footnotes(self, text, footnotes):
         return super()._format_text_and_footnotes(text, footnotes)
