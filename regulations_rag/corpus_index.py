@@ -1,9 +1,6 @@
 import logging
-
 from abc import ABC, abstractmethod
-
 import pandas as pd
-
 from regulations_rag.rerank import RerankAlgos, rerank
 from regulations_rag.embeddings import get_closest_nodes, num_tokens_from_string
 
@@ -14,23 +11,23 @@ logging.addLevelName(DEV_LEVEL, 'DEV')
 
 class CorpusIndex(ABC):
     """
-    A class to handle and provide relevant sections, definitions, and workflow. This could wrap a database or a DataFrame
+    A class to handle and provide relevant sections, definitions, and workflow.
+    This could wrap a database or a DataFrame.
     """    
     def __init__(self, user_type, corpus_description, corpus):
         """
         Parameters:
         -----------
         user_type : str
-            Used in the LLM system prompt to tell the model who they are assisting
+            Used in the LLM system prompt to tell the model who they are assisting.
         corpus_description : str
-            Used in the LLM system prompt to tell the model what document they will be answering questions on
-        corpus : Corpus - a collection of Documents
-            Used to check and extract section references that will be used to request the regulation extracts
+            Used in the LLM system prompt to tell the model what document they will be answering questions on.
+        corpus : Corpus
+            A collection of Documents used to check and extract section references that will be used to request the regulation extracts.
         """
         self.user_type = user_type
         self.corpus_description = corpus_description
         self.corpus = corpus
-
 
     @abstractmethod
     def get_relevant_definitions(self, user_content, user_content_embedding, threshold):
@@ -40,7 +37,7 @@ class CorpusIndex(ABC):
         Parameters:
         -----------
         user_content : str
-            The users question
+            The user's question.
         user_content_embedding : ndarray
             The embedding vector of the user's content.
         threshold : float
@@ -49,20 +46,20 @@ class CorpusIndex(ABC):
         Returns:
         --------
         DataFrame
-            A DataFrame with with a column 'document' and 'definition' containing the text of the close definitions.
+            A DataFrame with columns 'document' and 'definition' containing the text of the close definitions.
         """
         pass
 
     @abstractmethod
-    def get_relevant_sections(self, user_content, user_content_embedding, threshold, RerankAlgos = RerankAlgos.NONE):
+    def get_relevant_sections(self, user_content, user_content_embedding, threshold, RerankAlgos=RerankAlgos.NONE):
         """
         Retrieves sections close to the given user content embedding. This should also filter the sections so that the
-        the returned chunks don't contain 'too many' tokens
+        returned chunks don't contain 'too many' tokens.
 
         Parameters:
         -----------
         user_content : str
-            The users question
+            The user's question.
         user_content_embedding : ndarray
             The embedding vector of the user's content.
         threshold : float
@@ -72,7 +69,7 @@ class CorpusIndex(ABC):
         --------
         DataFrame
             A DataFrame with sections close to the user content embedding. This method also adds the content of the manual
-            to the DataFrame in the column "document", "section_reference", "regulation_text"
+            to the DataFrame in the columns "document", "section_reference", "regulation_text".
         """
         pass
 
@@ -84,7 +81,7 @@ class CorpusIndex(ABC):
         Parameters:
         -----------
         user_content : str
-            The users question
+            The user's question.
         user_content_embedding : ndarray
             The embedding vector of the user's content.
         threshold : float
@@ -93,20 +90,16 @@ class CorpusIndex(ABC):
         Returns:
         --------
         DataFrame
-            A DataFrame with a column 'workflow' and one row which represents the one most likely workflow. This can return an 
-            empty DataFrame if there are no 'close' workflows
+            A DataFrame with a column 'workflow' and one row which represents the most likely workflow. This can return an 
+            empty DataFrame if there are no 'close' workflows.
         """
         pass
 
-
-
-"""
-An instance of the Corpus Index if the data is contained in DataFrames rather than Databases
-
-"""
 class DataFrameCorpusIndex(CorpusIndex):
+    """
+    An instance of the Corpus Index if the data is contained in DataFrames rather than Databases.
+    """
     def __init__(self, user_type, corpus_description, corpus, definitions, index, workflow):
-        # note: text is the thing that gets embedded but the actual definition is stored in 'definition'
         columns_in_dfns = ["embedding", "document", "section_reference", "text", "definition"]
         for column in columns_in_dfns:
             assert column in definitions.columns.to_list()
@@ -124,13 +117,11 @@ class DataFrameCorpusIndex(CorpusIndex):
         self.index = index
         self.workflow = workflow
 
-
     def get_relevant_definitions(self, user_content, user_content_embedding, threshold):
-        relevant_definitions = get_closest_nodes(self.definitions, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)
+        relevant_definitions = get_closest_nodes(self.definitions, embedding_column_name="embedding", content_embedding=user_content_embedding, threshold=threshold)
 
         if not relevant_definitions.empty:
             logger.log(DEV_LEVEL, "--   Relevant Definitions")
-            #relevant_definitions["definition"] = relevant_definitions.apply(lambda row: self.corpus.get_text(row["document"], row["section_reference"]), axis=1)
             for index, row in relevant_definitions.iterrows():
                 logger.log(DEV_LEVEL, f'{row["cosine_distance"]:.4f}: {row["text"]}')
         else:
@@ -146,28 +137,24 @@ class DataFrameCorpusIndex(CorpusIndex):
             relevant_sections.loc[index, "regulation_text"] = text
             relevant_sections.loc[index, "token_count"] = num_tokens_from_string(text)
 
-        # Initialize the cumulative sum and the counter 'n'
         cumulative_sum = 0
         counter = 0
         n = 0
 
-        # Correct loop to apply the specific logic
         for index, row in relevant_sections.iterrows():
             next_cumulative_sum = cumulative_sum + row["token_count"]
-            # Condition to check before exceeding the cap
             if next_cumulative_sum > capped_number_of_tokens:
-                n = counter  # Correct 'n' for 1-based index as per user specification
+                n = counter
                 break
             else:
                 cumulative_sum = next_cumulative_sum
             counter += 1
 
-        # Apply boundary conditions
-        if n == 0:  # If 'n' has not been updated, check the boundary conditions
+        if n == 0:
             if relevant_sections["token_count"].iloc[0] > capped_number_of_tokens:
                 n = 1
             else:
-                n = len(relevant_sections)  # Set 'n' to the total length if cap never exceeded
+                n = len(relevant_sections)
 
         if n != len(relevant_sections):
             logger.log(DEV_LEVEL, f"--   Token capping reduced the number of reference sections from {len(relevant_sections)} to {n}")
@@ -177,14 +164,14 @@ class DataFrameCorpusIndex(CorpusIndex):
 
         return top_subset_df
 
-
-
-    def get_relevant_sections(self, user_content, user_content_embedding, threshold, rerank_algo = RerankAlgos.NONE):
+    def get_relevant_sections(self, user_content, user_content_embedding, threshold, rerank_algo=RerankAlgos.NONE):
         """
         Retrieves sections close to the given user content embedding.
 
         Parameters:
         -----------
+        user_content : str
+            The user's question.
         user_content_embedding : ndarray
             The embedding vector of the user's content.
         threshold : float
@@ -194,9 +181,9 @@ class DataFrameCorpusIndex(CorpusIndex):
         --------
         DataFrame
             A DataFrame with sections close to the user content embedding. This method also adds the content of the manual
-            to the DataFrame in the column "document", "section_reference", "regulation_text"
+            to the DataFrame in the columns "document", "section_reference", "regulation_text".
         """
-        relevant_sections = get_closest_nodes(self.index, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)         
+        relevant_sections = get_closest_nodes(self.index, embedding_column_name="embedding", content_embedding=user_content_embedding, threshold=threshold)         
         n = rerank_algo.params["initial_section_number_cap"]
         relevant_sections = relevant_sections.nsmallest(n, 'cosine_distance')      
         logger.log(DEV_LEVEL, f"Selecting the top {n} items based on cosine-similarity score")
@@ -209,16 +196,14 @@ class DataFrameCorpusIndex(CorpusIndex):
             reranked_sections = rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo).copy(deep=True)        
             capped_sections = self.cap_rag_section_token_length(reranked_sections, rerank_algo.params["final_token_cap"])
             relevant_sections = capped_sections
-            relevant_sections["regulation_text"] = relevant_sections.apply(lambda row: self.corpus.get_text(row["document"], row["section_reference"], add_markdown_decorators = False), axis=1)
+            relevant_sections["regulation_text"] = relevant_sections.apply(lambda row: self.corpus.get_text(row["document"], row["section_reference"], add_markdown_decorators=False), axis=1)
         else:
             logger.log(DEV_LEVEL, "--   No relevant sections found")
             columns = self.index.columns.to_list()
             columns.append("regulation_text")
-            relevant_sections = pd.DataFrame([], columns = columns)
+            relevant_sections = pd.DataFrame([], columns=columns)
             
-
         return relevant_sections
-
 
     def get_relevant_workflow(self, user_content, user_content_embedding, threshold):
         """
@@ -226,6 +211,8 @@ class DataFrameCorpusIndex(CorpusIndex):
 
         Parameters:
         -----------
+        user_content : str
+            The user's question.
         user_content_embedding : ndarray
             The embedding vector of the user's content.
         threshold : float
@@ -238,6 +225,6 @@ class DataFrameCorpusIndex(CorpusIndex):
             Returns an empty DataFrame if no workflow information is available.
         """
         if len(self.workflow) > 0:
-            return get_closest_nodes(self.workflow, embedding_column_name = "embedding", content_embedding = user_content_embedding, threshold = threshold)
+            return get_closest_nodes(self.workflow, embedding_column_name="embedding", content_embedding=user_content_embedding, threshold=threshold)
         else:
-            return pd.DataFrame([], columns = self.required_columns_workflow)
+            return pd.DataFrame([], columns=self.required_columns_workflow)

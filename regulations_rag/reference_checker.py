@@ -6,8 +6,8 @@ class ReferenceChecker:
     
     Legal documents often utilize a hierarchical numbering system for sections, which this class aims to support.
     The indexing might start with a capital letter, followed by an indented Roman numeral, then a double-indented lowercase letter in brackets, etc.
-    This class facilitates the management of such indices, including the ability to specify exceptions that do not follow the standard indexing pattern
-    for example "Overview" or "Definitions"
+    This class facilitates the management of such indices, including the ability to specify exceptions that do not follow the standard indexing pattern,
+    for example "Overview" or "Definitions".
     
     Attributes:
         index_patterns (list): A list of regex patterns that define valid index formats.
@@ -16,16 +16,18 @@ class ReferenceChecker:
         
     Parameters:
         regex_list_of_indices (list): A list of regex patterns specifying the valid formats for indices.
+        text_version (str, optional): A text description of the index format. Defaults to an empty string.
         exclusion_list (list, optional): A list of index formats that should be excluded from validation. Defaults to an empty list.
     """
-    def __init__(self, regex_list_of_indices, text_version = "", exclusion_list=[]):
+    
+    def __init__(self, regex_list_of_indices, text_version="", exclusion_list=[]):
         self.index_patterns = regex_list_of_indices
         self.exclusion_list = exclusion_list
         if text_version:
             self.text_version = text_version
         else:
             combined_pattern = "".join(f"({pattern.lstrip('^')})" for pattern in regex_list_of_indices)
-            self.text_version =  "r'" + combined_pattern + "'"
+            self.text_version = "r'" + combined_pattern + "'"
 
     def is_valid(self, reference):
         """
@@ -53,7 +55,7 @@ class ReferenceChecker:
                         # If a pattern was matched previously but the current pattern doesn't match,
                         # the reference is invalid.
                         return False
-        if reference_copy: # i.e. there is more text than there are regex patterns
+        if reference_copy:  # i.e. there is more text than there are regex patterns
             return False
         return pattern_matched
 
@@ -84,21 +86,20 @@ class ReferenceChecker:
 
         partial_ref = ""
         remaining_str = input_string
-    
+
         for pattern in self.index_patterns:
             # the caret "^" is used in the index pattern because we only want the index at the start of the section but this causes potential issues here so it is removed 
-            if pattern[0] == "^": 
+            if pattern[0] == "^":
                 pattern = pattern[1:]
             match = re.search(pattern, remaining_str)
             if match:
                 partial_ref += match.group()
                 remaining_str = remaining_str[match.end():]
             else:
-                if remaining_str and "(" in remaining_str:                     
-                    return partial_ref # this will deal with some cases but may result in undesired behaviour for invalid strings of the form ('B.18 Gold (B)(a)(b)'))
-        
-        return partial_ref if partial_ref else None
+                if remaining_str and "(" in remaining_str:
+                    return partial_ref  # this will deal with some cases but may result in undesired behaviour for invalid strings of the form ('B.18 Gold (B)(a)(b)'))
 
+        return partial_ref if partial_ref else None
 
     def split_reference(self, reference):
         """
@@ -117,9 +118,9 @@ class ReferenceChecker:
         Raises:
             ValueError: If the reference does not fully match the provided patterns or if there's unmatched
                         text remaining.
-        """        
+        """
         components = []
-        if reference == "": 
+        if reference == "":
             return components
         if reference in self.exclusion_list:
             components.append(reference)
@@ -162,10 +163,10 @@ class ReferenceChecker:
 
         Raises:
             ValueError: If the input_string is empty or if valid components cannot be extracted from it.
-        """        
+        """
         if input_string == "":
             return ""
-            #raise ValueError(f"Unable to get parent string for empty input")
+            # raise ValueError(f"Unable to get parent string for empty input")
 
         split_reference = self.split_reference(input_string)
 
@@ -173,13 +174,22 @@ class ReferenceChecker:
 
         if not split_reference:
             raise ValueError(f"Unable to extract valid indexes from the string {input_string}")
-        
-        for i in range(0, len(split_reference)-1):
+
+        for i in range(0, len(split_reference) - 1):
             parent_reference += split_reference[i]
 
         return parent_reference
 
     def get_current_and_parent_references(self, reference):
+        """
+        Retrieves a list of the given reference and all its parent references.
+
+        Parameters:
+            reference (str): The reference string for which to retrieve the list of references.
+
+        Returns:
+            list: A list containing the given reference and all its parent references.
+        """
         parents = [reference]
         while reference:
             reference = self.get_parent_reference(reference)
@@ -187,13 +197,25 @@ class ReferenceChecker:
                 parents.append(reference)
         return parents
 
-    # used to check if a request for more information returned a result that is already in the RAG prompt - something that happens often
     def is_reference_or_parents_in_list(self, reference, list_of_references):
+        """
+        Checks if a given reference or any of its parent references are present in a list of references.
+
+        This method first checks if the provided reference is directly in the list of references.
+        If not, it retrieves all parent references of the given reference and checks if any of them
+        are in the list.
+
+        Parameters:
+            reference (str): The reference string to check.
+            list_of_references (list): A list of reference strings to check against.
+
+        Returns:
+            bool: True if the reference or any of its parent references are in the list, False otherwise.
+        """
         if reference in list_of_references:
             return True
         parents = self.get_current_and_parent_references(reference)
         return any(parent in list_of_references for parent in parents)
-
 
 
     def _extract_reference_from_string(self, s):
@@ -209,7 +231,7 @@ class ReferenceChecker:
         of the document. It simply extracts what appears to be an index based on the provided patterns because at this 
         stage, with only one line of data it is impossible to know, for example if '(i)' is a roman numeral or the 
         single lowercase letter. At this stage we just strip matching strings that look like index values from the 
-        rest of the string. We only check if (i) is a indented correctly later when we have the full reference
+        rest of the string. We only check if (i) is a indented correctly later when we have the full reference.
 
         Parameters:
             s (str): The string from which to extract the index.

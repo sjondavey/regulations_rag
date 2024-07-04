@@ -20,32 +20,46 @@ document_as_df = pd.DataFrame(document_as_list, columns=columns)
 
 class WRR(Document):
     def __init__(self):
-
-        reference_checker =  SimpleReferenceChecker()
+        document_name = "Navigating Whale Rock Ridge"
+        reference_checker = SimpleReferenceChecker()
+        super().__init__(document_name, reference_checker)
         self.document_as_df = document_as_df
 
-        document_name = "Navigating Whale Rock Ridge"
-        super().__init__(document_name, reference_checker=reference_checker)
+    def get_text(self, section_reference, add_markdown_decorators=True, add_headings=True, section_only=False):
+        """
+        Get the formatted text and footnotes for a given section reference.
+        
+        Args:
+            section_reference (str): The section reference to get the text and footnotes for.
+            add_markdown_decorators (bool): Whether to add markdown decorators.
+            add_headings (bool): Whether to add headings.
+            section_only (bool): Whether to include only the section text.
 
-    def get_text(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):               
-        text, footnotes = super().get_text_and_footnotes(section_reference, add_markdown_decorators, add_headings, section_only)
-        return super()._format_text_and_footnotes(text, footnotes)
+        Returns:
+            str: The formatted text with footnotes.
+        """
+        text, footnotes = self.get_text_and_footnotes(section_reference, add_markdown_decorators, add_headings, section_only)
+        return self._format_text_and_footnotes(text, footnotes)
 
-    def get_heading(self, section_reference, add_markdown_decorators = False):
+    def get_heading(self, section_reference, add_markdown_decorators=False):
+        """
+        Get the heading text for a given section reference.
+
+        Args:
+            section_reference (str): The section reference to get the heading for.
+            add_markdown_decorators (bool): Whether to add markdown decorators.
+
+        Returns:
+            str: The heading text.
+        """
         return super().get_heading(section_reference, add_markdown_decorators)
 
     def get_toc(self):
-        return StandardTableOfContent(root_node_name = self.name, reference_checker = self.reference_checker, regulation_df = self.document_as_df)
+        """
+        Get the table of contents for the document.
 
-    def _extract_footnotes(self, text, footnote_pattern):
-        return super()._extract_footnotes(text, footnote_pattern)
-
-    def _format_line(self, row, text_extract, add_markdown_decorators):
-        return super()._format_line(row, text_extract, add_markdown_decorators)
-
-    def get_text_and_footnotes(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):
-        return super().get_text_and_footnotes(section_reference)
-
-    def _format_text_and_footnotes(self, text, footnotes):
-        return super()._format_text_and_footnotes(text, footnotes)
+        Returns:
+            StandardTableOfContent: The table of contents object.
+        """
+        return StandardTableOfContent(root_node_name=self.name, reference_checker=self.reference_checker, regulation_df=self.document_as_df)
 

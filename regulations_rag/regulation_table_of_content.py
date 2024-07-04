@@ -3,7 +3,7 @@ from anytree import Node, RenderTree, find, LevelOrderIter, AsciiStyle
 import re
 import pandas as pd
 from regulations_rag.embeddings import num_tokens_from_string
-        
+
 logger = logging.getLogger(__name__)
 
 class TableOfContentEntry(Node):
@@ -12,30 +12,12 @@ class TableOfContentEntry(Node):
         self.heading_text = heading_text
         self.full_node_name = full_node_name
 
-    # Recursive function to consolidate headings from leaves to root
     def consolidate_from_leaves(self, consolidate_headings):
-        """
-        Recursively consolidates heading texts from leaf nodes up to the root node.
-        
-        This method is used to aggregate or summarize information from the bottom of the
-        tree (leaf nodes) upwards, allowing for the compilation of heading texts at higher
-        levels in the hierarchy based on a user-defined consolidation function.
-        
-        Parameters:
-        - consolidate_headings (callable): A function that takes a list of heading texts from
-          child nodes and consolidates them into a single heading text.
-        
-        Returns:
-        - str: The consolidated heading text for this node after processing all child nodes.
-        """
-        # base case: if the node is a leaf node (no children)
         if not self.children:
             return self.heading_text
         
-        # Recursive case: if the node has children
         children_headings = [child.consolidate_from_leaves(consolidate_headings) for child in self.children]
         self.heading_text = consolidate_headings(children_headings)
-
         return self.heading_text
 
 class TableOfContent:
@@ -44,53 +26,27 @@ class TableOfContent:
         self.reference_checker = reference_checker
 
     def add_to_toc(self, section_reference, heading_text=''):
-        """
-        Adds a new entry to the Table of Content or updates an existing entry's heading text based on a hierarchical
-        section_reference identifier string. This also adds any missing parents (without headings) of the section_reference 
-        all the way back to the root
-
-        This method parses the `section_reference` using the `reference_checker` to navigate through the tree
-        and find the correct position for the new node or to update an existing section_reference.
-
-        Parameters:
-        - section_reference (str): The hierarchical identifier of the node to add or update.
-        - heading_text (str, optional): The heading text for the section_reference. Defaults to an empty string.
-
-        Raises:
-        - ValueError: If `section_reference` is not a valid reference according to `reference_checker`.
-        """
         if section_reference == self.root.name:
             self.root.heading_text = heading_text
             return
 
-        elif not self.reference_checker.is_valid(section_reference):
-            raise ValueError(f'{section_reference} is not a valid section_reference reference')
+        if not self.reference_checker.is_valid(section_reference):
+            raise ValueError(f'{section_reference} is not a valid section_reference')
 
         node_names = self.reference_checker.split_reference(section_reference)
-
         current_parent = self.root
         full_node_name = ''
-        previous_full_node_name = ''  # variable to hold previous full section_reference 
 
         for i, node_name in enumerate(node_names):
-            previous_full_node_name = full_node_name  # update previous section_reference before adding current section_reference 
-            full_node_name = full_node_name + node_name
-            found_node = None
+            full_node_name += node_name
+            found_node = next((child for child in current_parent.children if child.name == node_name), None)
 
-            for child in current_parent.children:
-                if child.name == node_name:
-                    found_node = child
-                    break
-
-            # If the section_reference isn't found, create it
             if found_node is None:
-                if i == len(node_names) - 1:  # if this is the last section_reference
-                    current_parent = TableOfContentEntry(node_name, previous_full_node_name + node_name, parent=current_parent, heading_text=heading_text)
-                else:
-                    current_parent = TableOfContentEntry(node_name, previous_full_node_name + node_name, parent=current_parent, heading_text='')
+                heading = heading_text if i == len(node_names) - 1 else ''
+                current_parent = TableOfContentEntry(node_name, full_node_name, parent=current_parent, heading_text=heading)
             else:
                 current_parent = found_node
-            # If this is the last section_reference and it does not have a heading text, assign it
+
             if i == len(node_names) - 1 and not current_parent.heading_text:
                 current_parent.heading_text = heading_text
 
@@ -98,43 +54,30 @@ class TableOfContent:
         if section_reference == self.root.name:
             return self.root
         if not self.reference_checker.is_valid(section_reference):
-            raise ValueError(f'{section_reference} is not a valid section_reference reference')
-        # Start search from the root
+            raise ValueError(f'{section_reference} is not a valid section_reference')
+        
         current_node = self.root
         node_names = self.reference_checker.split_reference(section_reference)
         for node_name in node_names:
-            # Look for the section_reference among the children of the current section_reference
-            found_node = next((node for node in current_node.children if node.name == node_name), None)
-            # If not found, raise a ValueError
-            if found_node is None:
+            current_node = next((node for node in current_node.children if node.name == node_name), None)
+            if current_node is None:
                 raise ValueError(f"Node with path {section_reference} does not exist in the tree")
-            # If found, continue searching from this section_reference
-            current_node = found_node
-        # Return the section_reference we've found
         return current_node
 
     def print_tree(self):
         for pre, _, node in RenderTree(self.root, style=AsciiStyle()):
             print(f"{pre}{node.name} [{node.heading_text}]")
 
-    # I use this function when extracting the headings from the manual for indexing. There are no tests for it yet!!
-    # TODO: Add tests for this
-    def _list_node_children(self, section_reference, indent = 0):
+    def _list_node_children(self, section_reference, indent=0):
         string = ""
-        # For each section_reference, check if at least one child has a non-empty heading text
         children_with_text = [child for child in section_reference.children if child.heading_text != '']
 
         if children_with_text:
-            # If any child has non-empty heading text, print all that section_reference's children with their heading text
             for child in section_reference.children:
-                if child.parent == self.root:
-                    if child.name in self.reference_checker.exclusion_list:
-                        string = string + (' ' * indent + f'{child.name}\n')    
-                    else:
-                        string = string + (' ' * indent + f'{child.name} {child.heading_text}\n')
-                else:
-                    string = string + (' ' * indent + f'{child.name} {child.heading_text}\n')
-                string = string + self._list_node_children(child, indent + 4)
+                exclusion_list = self.reference_checker.exclusion_list if child.parent == self.root else []
+                text = '' if child.name in exclusion_list else f' {child.heading_text}'
+                string += ' ' * indent + f'{child.name}{text}\n'
+                string += self._list_node_children(child, indent + 4)
         return string
 
 
@@ -154,25 +97,23 @@ class StandardTableOfContent(TableOfContent):
         columns 'heading', 'text', and 'section_reference'.
         - reference_checker (object): A ReferenceChecker object.
         
-        
         Raises:
         - ValueError: If any 'full_reference' in the DataFrame is not valid according to `reference_checker`.
         """
         super().__init__(root_node_name, reference_checker=reference_checker)
         self.regulation_df = regulation_df
         if not self.check_columns():
-            message = f"The input DataFrame did not have the correct headings to build the StandardTableOfContent. Required columns are text, heading and section_reference"
+            message = "The input DataFrame did not have the correct headings to build the StandardTableOfContent. Required columns are 'text', 'heading', and 'section_reference'"
             logger.error(message)
             raise AttributeError(message)
 
-        for i, row in regulation_df.iterrows() :
+        for i, row in regulation_df.iterrows():
             try:
                 heading_text = row['text'] if row['heading'] else ''
-
                 heading_text = self.remove_footnotes(heading_text).strip()
 
                 if not reference_checker.is_valid(row['section_reference']):
-                    raise ValueError(row['section_reference'] + ' is not a valid reference. See row ' + str(i))
+                    raise ValueError(f"{row['section_reference']} is not a valid reference. See row {i}")
 
                 super().add_to_toc(row['section_reference'], heading_text=heading_text)
 
@@ -184,36 +125,28 @@ class StandardTableOfContent(TableOfContent):
 
     def remove_footnotes(self, text):
         footnote_pattern = r'\[\^\d+\]\:'
-
         lines = text.split('\n')
-        footnotes = []
-        remaining_text = []
-        for line in lines:
-            if re.match(footnote_pattern, line):
-                footnotes.append(line)
-            else:
-                remaining_text.append(line)
+        remaining_text = [line for line in lines if not re.match(footnote_pattern, line)]
         text = '\n'.join(remaining_text)
-        result = re.sub(r'\[\^\d+\]', '', text)
-        return result
-
+        return re.sub(r'\[\^\d+\]', '', text)
 
     def check_columns(self):
-        ''' 
-            'text'              : the text on the line excluding the 'reference' and any special text (identifying headings, page number etc)
-            'heading'           : boolean identifying the text as as (sub-) section heading
-            'section_reference' : the full reference. Starting at the root section_reference and ending with the value in 'reference'
-        '''
-        expected_columns = ['text', 'heading', 'section_reference'] # this is a minimum - it could contain more
-
+        """
+        Validates the presence of required columns in the DataFrame.
+        
+        Required columns:
+        - 'text': the text on the line excluding the 'reference' and any special text (identifying headings, page number, etc.)
+        - 'heading': boolean identifying the text as a (sub-)section heading
+        - 'section_reference': the full reference. Starting at the root section_reference and ending with the value in 'reference'
+        """
+        expected_columns = ['text', 'heading', 'section_reference']
         actual_columns = self.regulation_df.columns.to_list()
-        for column in expected_columns:
-            if column not in actual_columns:
-                print(f"{column} not in the DataFrame version of the manual")
-                return False
+
+        missing_columns = [col for col in expected_columns if col not in actual_columns]
+        if missing_columns:
+            logger.error(f"Missing columns in DataFrame: {', '.join(missing_columns)}")
+            return False
         return True
-
-
 
 def _split_recursive(node, document, table_of_content, token_limit, node_list=[]):
 #def _split_recursive(node, regulation_reader, table_of_content, token_limit, node_list=[]):

@@ -12,7 +12,7 @@ def test_get_text(plett_document):
     assert text == expected_text
     
     text = plett_document.get_text("A.2(A)")
-    expected_text = '# A.2 Directions\n\n## A.2(A) To to Gym\n\n### A.2(A)(i) From West Gate (see 1.1)\n\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\n\n### A.2(A)(ii) From Main Gate (see 1.2)\n\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\n\n### A.2(A)(iii) From South Gate (see 1.3)\n\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+    expected_text = '# A.2 Directions\n\n## A.2(A) To the Gym\n\n### A.2(A)(i) From West Gate (see 1.1)\n\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\n\n### A.2(A)(ii) From Main Gate (see 1.2)\n\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\n\n### A.2(A)(iii) From South Gate (see 1.3)\n\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
     assert text == expected_text
 
 #     text = plett_document.get_text("1.2", add_markdown_decorators=False)

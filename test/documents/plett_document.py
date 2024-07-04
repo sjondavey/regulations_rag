@@ -11,9 +11,9 @@ document_as_list = [
     ["A.", False, "Plett is a small town. Here are directions to help you[^1].\n[^1]: Directions from Whale Rock Ridge"],
     ["A.1", True, "Definitions"],
     ["A.1(A)", False, "The Gym: The Health and Fitness Center on Piesang Valley Road"],
-    ["A.1(B)", False, "The Robberg Nature Reserve: The Cape Nature park at the end of the Robberg Peninsula"],    
-    ["A.2", True, "Directions"],    
-    ["A.2(A)", True, "To to Gym"],
+    ["A.1(B)", False, "The Robberg Nature Reserve: The Cape Nature park at the end of the Robberg Peninsula"],
+    ["A.2", True, "Directions"],
+    ["A.2(A)", True, "To the Gym"],
     ["A.2(A)(i)", True, "From West Gate (see 1.1)"],
     ["A.2(A)(i)", False, "Turn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym"],
     ["A.2(A)(ii)", True, "From Main Gate (see 1.2)"],
@@ -32,32 +32,46 @@ document_as_df = pd.DataFrame(document_as_list, columns=columns)
 
 class Plett(Document):
     def __init__(self):
-
-        reference_checker =  TESTReferenceChecker()
+        reference_checker = TESTReferenceChecker()
         self.document_as_df = document_as_df
-
         document_name = "Navigating Plett"
         super().__init__(document_name, reference_checker=reference_checker)
 
-    def get_text(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):               
+    def get_text(self, section_reference, add_markdown_decorators=True, add_headings=True, section_only=False):
+        """
+        Get the text for a given section reference.
+        
+        Args:
+            section_reference (str): The section reference to get the text for.
+            add_markdown_decorators (bool): Whether to add markdown decorators.
+            add_headings (bool): Whether to add headings.
+            section_only (bool): Whether to include only the section text.
+        
+        Returns:
+            str: The formatted text and footnotes.
+        """
         text, footnotes = super().get_text_and_footnotes(section_reference, add_markdown_decorators, add_headings, section_only)
         return super()._format_text_and_footnotes(text, footnotes)
 
-    def get_heading(self, section_reference, add_markdown_decorators = False):
+    def get_heading(self, section_reference, add_markdown_decorators=False):
+        """
+        Get the heading for a given section reference.
+        
+        Args:
+            section_reference (str): The section reference to get the heading for.
+            add_markdown_decorators (bool): Whether to add markdown decorators.
+        
+        Returns:
+            str: The heading text.
+        """
         return super().get_heading(section_reference, add_markdown_decorators)
 
     def get_toc(self):
-        return StandardTableOfContent(root_node_name = self.name, reference_checker = self.reference_checker, regulation_df = self.document_as_df)
-
-    def _extract_footnotes(self, text, footnote_pattern):
-        return super()._extract_footnotes(text, footnote_pattern)
-
-    def _format_line(self, row, text_extract, add_markdown_decorators):
-        return super()._format_line(row, text_extract, add_markdown_decorators)
-
-    def get_text_and_footnotes(self, section_reference, add_markdown_decorators = True, add_headings = True, section_only = False):
-        return super().get_text_and_footnotes(section_reference, add_markdown_decorators, add_headings, section_only)
-
-    def _format_text_and_footnotes(self, text, footnotes):
-        return super()._format_text_and_footnotes(text, footnotes)
+        """
+        Get the table of contents for the document.
+        
+        Returns:
+            StandardTableOfContent: The table of contents.
+        """
+        return StandardTableOfContent(root_node_name=self.name, reference_checker=self.reference_checker, regulation_df=self.document_as_df)
 

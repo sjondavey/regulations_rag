@@ -72,17 +72,23 @@ class TestReferenceChecker:
         components = self.reference_checker.split_reference(reference_on_exclusion_list)
         assert components[0] == reference_on_exclusion_list
 
+
     def test_get_parent_reference(self):
         reference = 'G.1(C)(xviii)(c)(dd)(9)'
         assert self.reference_checker.get_parent_reference(reference) == 'G.1(C)(xviii)(c)(dd)'
-        # with pytest.raises(ValueError):
-        #     components = self.reference_checker.get_parent_reference("")
         components = self.reference_checker.get_parent_reference("")
         assert components == ""
+        # Test for a single component reference
+        reference = 'G.1'
+        assert self.reference_checker.get_parent_reference(reference) == ''
 
     def test_get_current_and_parent_references(self):
         reference = 'G.1(C)(xviii)(c)(dd)(9)'
         current_and_parent = ['G.1(C)(xviii)(c)(dd)(9)', 'G.1(C)(xviii)(c)(dd)', 'G.1(C)(xviii)(c)', 'G.1(C)(xviii)', 'G.1(C)', 'G.1']
+        assert self.reference_checker.get_current_and_parent_references(reference) == current_and_parent
+        # Test for a single component reference
+        reference = 'G.1'
+        current_and_parent = ['G.1']
         assert self.reference_checker.get_current_and_parent_references(reference) == current_and_parent
 
     def test_is_reference_or_parents_in_list(self):
@@ -91,7 +97,15 @@ class TestReferenceChecker:
         assert not self.reference_checker.is_reference_or_parents_in_list(reference, list_of_references)
         list_of_references = ['A.1', 'B.1', 'G.1']
         assert self.reference_checker.is_reference_or_parents_in_list(reference, list_of_references)
-        
+        # Test when the reference itself is in the list
+        reference = 'G.1(C)(xviii)(c)(dd)(9)'
+        list_of_references = ['A.1', 'B.1', 'G.1(C)(xviii)(c)(dd)(9)']
+        assert self.reference_checker.is_reference_or_parents_in_list(reference, list_of_references)
+
+        # Test when a parent of the reference is in the list
+        reference = 'G.1(C)(xviii)(c)(dd)(9)'
+        list_of_references = ['A.1', 'B.1', 'G.1(C)(xviii)(c)']
+        assert self.reference_checker.is_reference_or_parents_in_list(reference, list_of_references)
 
     def test___extract_reference_from_string(self):
         string_with_no_reference = 'Africa means any country forming part of the African Union.'
@@ -134,6 +148,24 @@ class TestReferenceChecker:
         index, string = self.reference_checker._extract_reference_from_string(heading_on_exclusion_list)
         assert index == heading_on_exclusion_list
         assert string == ""
+
+        # Test for string with no reference and additional spaces
+        # string_with_no_reference = '    Africa means any country forming part of the African Union.'
+        # index, string = self.reference_checker._extract_reference_from_string(string_with_no_reference)
+        # assert index == ""
+        # assert string == string_with_no_reference.strip()
+
+        # Test for string with reference and additional text at the end
+        string_with_reference = 'A.1 Definitions and more text'
+        index, string = self.reference_checker._extract_reference_from_string(string_with_reference)
+        assert index == "A.1"
+        assert string == 'Definitions and more text'
+
+        # Test for string with reference and additional spaces
+        # string_with_reference = '    A.1    Definitions'
+        # index, string = self.reference_checker._extract_reference_from_string(string_with_reference)
+        # assert index == "A.1"
+        # assert string == 'Definitions'
 
         def test_another_reference_tester(self):
             class ManualReferenceChecker(ReferenceChecker):
