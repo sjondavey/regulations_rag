@@ -12,12 +12,15 @@ class EmbeddingParameters:
 
         if embedding_model == "text-embedding-ada-002":
             self.threshold = 0.15
+            self.threshold_definitions = 0.20
             self.dimensions = 1536 # this model does not 
         elif embedding_model == "text-embedding-3-large":
             if embedding_dimensions == 1024:
                 self.threshold = 0.38
+                self.threshold_definitions = 0.45
             elif embedding_dimensions == 3072:
                 self.threshold = 0.40
+                self.threshold_definitions = 0.45
         else:
             raise ValueError("Unknown Embedding model or embedding dimension")
 

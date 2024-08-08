@@ -332,7 +332,7 @@ class CorpusChat():
             most_relevant_workflow_score = 1.0
             workflow_triggered = "none"
 
-        relevant_definitions = self.index.get_relevant_definitions(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold)
+        relevant_definitions = self.index.get_relevant_definitions(user_content = user_content, user_content_embedding = question_embedding, threshold = self.embedding_parameters.threshold_definitions)
         if not relevant_definitions.empty:
 
             most_relevant_definition_score = relevant_definitions.iloc[0]['cosine_distance']
