@@ -1,7 +1,16 @@
+import logging
 import os
 import pandas as pd
 from cryptography.fernet import Fernet
 
+
+logger = logging.getLogger(__name__)
+
+# Create custom log levels for the really detailed logs
+DEV_LEVEL = 15
+ANALYSIS_LEVEL = 25
+logging.addLevelName(DEV_LEVEL, 'DEV')       
+logging.addLevelName(ANALYSIS_LEVEL, 'ANALYSIS')       
 
 def load_parquet_data(path_to_file, decryption_key = ""):
     if not os.path.exists(path_to_file):
