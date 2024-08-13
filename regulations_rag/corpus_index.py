@@ -193,7 +193,14 @@ class DataFrameCorpusIndex(CorpusIndex):
         if not relevant_sections.empty:
             logger.log(DEV_LEVEL, "--   Relevant sections found")
             rerank_algo.params["user_question"] = user_content
-            reranked_sections = rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo).copy(deep=True)        
+            reranked_sections = rerank(relevant_sections=relevant_sections, rerank_algo=rerank_algo).copy(deep=True)     
+            if reranked_sections.empty:
+                logger.log(DEV_LEVEL, "--   Re-ranking concluded there were no relevant sections")
+                columns = self.index.columns.to_list()
+                columns.append("regulation_text")
+                empty_sections = pd.DataFrame([], columns=columns)
+                return empty_sections
+
             capped_sections = self.cap_rag_section_token_length(reranked_sections, rerank_algo.params["final_token_cap"])
             relevant_sections = capped_sections
             relevant_sections["regulation_text"] = relevant_sections.apply(lambda row: self.corpus.get_text(row["document"], row["section_reference"], add_markdown_decorators=False), axis=1)
