@@ -539,6 +539,7 @@ class CorpusChat():
             return
 
         if self.system_state == CorpusChat.State.STUCK:
+            logger.log(DEV_LEVEL, "Unable to execute corpus_chat.user_provides_input because the system_state == CorpusChat.State.STUCK")
             self.append_content("user", user_content)
             self.append_content("assistant", CorpusChat.Errors.STUCK.value)
             return 
@@ -546,88 +547,43 @@ class CorpusChat():
         elif self.system_state == CorpusChat.State.RAG:            
             logger.log(ANALYSIS_LEVEL, f"{self.user_name} question: {user_content}")        
             workflow_triggered, df_definitions, df_search_sections = self.similarity_search(user_content) # df_search_sections MUST not have "document"
+            
             if workflow_triggered != "none":
+                logger.log(DEV_LEVEL, f"Workflow triggered: {workflow_triggered}")
                 workflow_triggered, df_definitions, df_search_sections = self.execute_workflow(workflow_triggered, user_content)
 
-            if len(self.messages) < 2 and (len(df_definitions) + len(df_search_sections) == 0):
-                logger.log(DEV_LEVEL, "Note: Unable to find any definitions or text related to this query")
-                self.system_state = CorpusChat.State.RAG         
-                self.append_content("user", user_content)       
-                self.append_content("assistant", CorpusChat.Errors.NO_DATA.value)
-                return
-            else:
+            if (len(df_definitions) + len(df_search_sections) == 0): # unable to find any relevant text in the database
+                if len(self.messages) < 2:
+                    logger.log(DEV_LEVEL, "Executing path for no retrieval and no conversation history")
+                    return self.execute_path_no_retrieval_no_conversation_history()
+                    
+                else:
+                    logger.log(DEV_LEVEL, "Executing path for no retrieval but with conversation history")
+                    return self.execute_path_no_retrieval_with_conversation_history()
+                    
+
+            else: # Retrieval step returns data
                 result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3,
                                                        testing = testing, manual_responses_for_testing = manual_responses_for_testing)
                 if not result["success"]:
-                    logger.error("Note: RAG returned an unexpected response")
-                    self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
-                    self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
-                    self.system_state = CorpusChat.State.STUCK # We are at a dead end.
-                    return
-
+                    logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
+                    return self.execute_path_for_unsuccessful_rag(user_content, df_definitions, df_search_sections)
+                    
 
                 if result["path"] == CorpusChat.Prefix.ANSWER.value:
                     #   result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
-                    self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
-                    reformatted_response, df_definitions, df_search_sections = self.reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
-                    # collect references
-                    df_references = self.collect_references(df_definitions, df_search_sections)
-                    self.append_content("assistant", reformatted_response)
-                    self.append_references(reformatted_response, df_references)
-                    self.system_state = CorpusChat.State.RAG 
-                    return 
-                elif result["path"] == CorpusChat.Prefix.SECTION.value:
-                    #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
-                    logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
-                    # Asking for an invalid section or a section that is already in the RAG
-                    force = False
-                    document = self.corpus.get_document(result['document'])
-                    if document.reference_checker.is_reference_or_parents_in_list(result['section'], df_search_sections["section_reference"].tolist()):
-                        logger.log(DEV_LEVEL, f"But {result['section']} is already in the RAG data, so now forcing the system to answer or opt out")
-                        force = True
-
-                    if force:
-                        result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=2,
-                                                               testing = testing, manual_responses_for_testing = manual_responses_for_testing[1:])
-
-                    else:
-                        df_search_sections = self.add_section_to_resource(result, df_definitions, df_search_sections)
-                        if self.system_state == CorpusChat.State.STUCK: # failed to add the sections
-                            # TODO: Do you want to ask the user for help?
-                            logger.info("Note: Request to add resources failed")
-                            self.append_content("assistant", CorpusChat.Errors.STUCK.value)
-                            return
-
-                        # ... and try again with new resources
-                        result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3,
-                                                               testing = testing, manual_responses_for_testing = manual_responses_for_testing[1:])
-                    
-                    if result["path"] == CorpusChat.Prefix.ANSWER.value:
-                        logger.info("Note: Question answered with the additional information")
-                        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
-                        reformatted_response, df_definitions, df_search_sections = self.reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
-                        # collect references
-                        df_references = self.collect_references(df_definitions, df_search_sections)                        
-                        self.append_content("assistant", reformatted_response)
-                        self.append_references(reformatted_response, df_references)
-                        self.system_state = CorpusChat.State.RAG 
-                        return
-                    
-                    else: 
-                        logger.info("Note: Even with the additional information, they system was unable to answer the question. Placing the system in 'stuck' mode")
-                        logger.info(f"The response from the query with additional resources was: \n{result}")
-                        msg = "A call for additional sections did not result in sufficient information to answer the question. The system is now stuck. Please clear the chat history and retry your query"
-                        self.append_content("assistant", msg)
-                        self.system_state = CorpusChat.State.STUCK
-                        return
+                    logger.error("corpus_chat.resource_augmented_query answered the question using the Retrieved text")
+                    return self.execute_path_for_successful_rag(user_content, df_definitions, df_search_sections, result)
 
                 elif result["path"] == CorpusChat.Prefix.NONE.value:
                     #   result {"success": True, "path": "NONE:"}
-                    logger.info("Note: The LLM was not able to find anything relevant in the supplied sections")
-                    self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
-                    self.append_content("assistant", CorpusChat.Errors.NO_RELEVANT_DATA.value)
-                    self.system_state = CorpusChat.State.RAG
-                    return
+                    logger.info("corpus_chat.resource_augmented_query was not not able to find relevant information in the retrieved text")
+                    return self.execute_path_for_no_relevant_information_in_retrieved_text(user_content, df_definitions, df_search_sections)
+
+                elif result["path"] == CorpusChat.Prefix.SECTION.value:
+                    #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
+                    logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
+                    return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result, testing, manual_responses_for_testing)
 
                 else:
                     logger.error("Note: RAG returned an unexpected response")
@@ -760,9 +716,112 @@ class CorpusChat():
         return result['answer'] + formatted_references, df_definitions, df_search_sections
 
     """ 
+    Override this method if you have created a table of workflows for your chat bot
+
     returns workflow_triggered, df_definitions, df_search_sections
     """
     def execute_workflow(self, workflow_triggered, user_content):
-        # return workflow_triggered, df_definitions, df_search_sections
-        raise NotImplementedError()
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_workflow() i.e. not executing any workflow, only re-running the similarity search and returning the results")
+        workflow_triggered, df_definitions, df_search_sections = self.similarity_search(user_content)
+        return workflow_triggered, df_definitions, df_search_sections
 
+
+    """ 
+    Override this method if you want to execute something specific when the user question does not result in any hits in the database
+    and there is no conversation history that may otherwise allow the system to infer some context and phrase a better question.
+
+    The default behaviour here is to do nothing
+    """ 
+    def execute_path_no_retrieval_no_conversation_history(self):
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_no_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
+        self.system_state = CorpusChat.State.RAG         
+        self.append_content("user", user_content)       
+        self.append_content("assistant", CorpusChat.Errors.NO_DATA.value)
+        return
+
+    """ 
+    Override this method if you want to execute something specific when the user question does not result in any hits in the database
+    BUT there IS conversation history that can be used to phrase a better question
+
+    The default behaviour here is to do nothing
+    """ 
+    def execute_path_no_retrieval_with_conversation_history(self):
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_with_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
+        self.system_state = CorpusChat.State.RAG         
+        self.append_content("user", user_content)       
+        self.append_content("assistant", CorpusChat.Errors.NO_DATA.value)
+        return
+
+    """ 
+    Override this method if you want to execute something specific when the retrieval augmented generation step returns result["success"] != True
+
+    The default behaviour here is to respond with CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value AND put the system in STUCK state
+    """ 
+    def execute_path_for_unsuccessful_rag(self, user_content, df_definitions, df_search_sections):
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_unsuccessful_rag() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value and updating system_state to CorpusChat.State.STUCK")
+        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
+        self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
+        self.system_state = CorpusChat.State.STUCK # We are at a dead end.
+        return
+
+
+    def execute_path_for_successful_rag(self, user_content, df_definitions, df_search_sections, result):
+        # result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_successful_rag() i.e. enriching the user question with the Retrieved text, reformatting the references")
+
+        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
+        reformatted_response, df_definitions, df_search_sections = self.reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
+        # collect references
+        df_references = self.collect_references(df_definitions, df_search_sections)
+        self.append_content("assistant", reformatted_response)
+        self.append_references(reformatted_response, df_references)
+        self.system_state = CorpusChat.State.RAG 
+        return 
+
+    def execute_path_for_no_relevant_information_in_retrieved_text(self, user_content, df_definitions, df_search_sections):
+        # result {"success": True, "path": "NONE:"}
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_no_relevant_information_in_retrieved_text() i.e. forcing the assistant response to CorpusChat.Errors.NO_RELEVANT_DATA.value")
+
+        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
+        self.append_content("assistant", CorpusChat.Errors.NO_RELEVANT_DATA.value)
+        self.system_state = CorpusChat.State.RAG
+        return
+
+
+    def execute_path_for_additional_sections_requested(self, user_content, df_definitions, df_search_sections, result, testing, manual_responses_for_testing):
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_additional_sections_requested()")
+
+        # Asking for an invalid section or a section that is already in the RAG
+        force = False
+        document = self.corpus.get_document(result['document'])
+        if document.reference_checker.is_reference_or_parents_in_list(result['section'], df_search_sections["section_reference"].tolist()):
+            logger.log(DEV_LEVEL, f"But {result['section']} is already in the RAG data, so now forcing the system to answer or opt out")
+            force = True
+
+        if force:
+            result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=2,
+                                                    testing = testing, manual_responses_for_testing = manual_responses_for_testing[1:])
+
+        else:
+            df_search_sections = self.add_section_to_resource(result, df_definitions, df_search_sections)
+            if self.system_state == CorpusChat.State.STUCK: # failed to add the sections
+                # TODO: Do you want to ask the user for help?
+                logger.log(DEV_LEVEL, "Note: Request to add resources failed")
+                self.append_content("assistant", CorpusChat.Errors.STUCK.value)
+                return
+
+            # ... and try again with new resources
+            result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3,
+                                                    testing = testing, manual_responses_for_testing = manual_responses_for_testing[1:])
+        
+        if result["path"] == CorpusChat.Prefix.ANSWER.value:
+            logger.log(DEV_LEVEL, "Note: Question answered with the additional information")
+            return self.execute_path_for_successful_rag(user_content, df_definitions, df_search_sections, result)
+        
+        else: 
+            logger.log(DEV_LEVEL, "Note: Even with the additional information, they system was unable to answer the question. Placing the system in 'stuck' mode")
+            logger.log(DEV_LEVEL, f"The response from the query with additional resources was: \n{result}")
+            msg = "A call for additional sections did not result in sufficient information to answer the question. The system is now stuck. Please clear the chat history and retry your query"
+            self.append_content("assistant", msg)
+            self.system_state = CorpusChat.State.STUCK
+            return

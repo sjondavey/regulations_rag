@@ -3,7 +3,6 @@ import re
 import pandas as pd
 from abc import ABC, abstractmethod
 from regulations_rag.reference_checker import ReferenceChecker
-from regulations_rag.regulation_table_of_content import StandardTableOfContent
 
 
 class Document(ABC):
