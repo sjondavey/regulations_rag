@@ -534,9 +534,7 @@ class CorpusChat():
         
         if user_content is None:
             logger.error(f"{self.user_name}: user_provides_input() function received an empty input. This should not have happened and is an indication there is a bug in the frontend. The system will be placed into a 'stuck' status")
-            self.append_content("assistant", CorpusChat.Errors.UNKNOWN_STATE.value)
-            self.system_state = CorpusChat.State.STUCK
-            return
+            return self.place_in_stuck_state()
 
         if self.system_state == CorpusChat.State.STUCK:
             logger.log(DEV_LEVEL, "Unable to execute corpus_chat.user_provides_input because the system_state == CorpusChat.State.STUCK")
@@ -714,6 +712,15 @@ class CorpusChat():
         # Reconstruct the answer with reformatted references
         formatted_references = f"  \nReference:  \n{reference_string}"
         return result['answer'] + formatted_references, df_definitions, df_search_sections
+
+
+
+    def place_in_stuck_state(self):
+        logger.error("The system is now in 'stuck' mode")
+        self.append_content("assistant", CorpusChat.Errors.UNKNOWN_STATE.value)
+        self.system_state = CorpusChat.State.STUCK
+        return
+
 
     """ 
     Override this method if you have created a table of workflows for your chat bot
