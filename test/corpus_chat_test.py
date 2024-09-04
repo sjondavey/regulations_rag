@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 from openai import OpenAI
+import pytest
+from unittest.mock import patch
 
 from regulations_rag.embeddings import  EmbeddingParameters
 from regulations_rag.rerank import RerankAlgos
@@ -287,84 +289,62 @@ class TestCorpusChat:
 #         # but with Extract 5 from a non-GDPR document with an index.
 
 
-    def test_resource_augmented_query(self):
-        # NOTE: I am not going to test the openai api call. I am going to use 'testing' mode with canned answers from the "api call"
+    @patch.object(CorpusChat, '_get_api_response')
+    def test_resource_augmented_query(self, mock__get_api_response):
+        # NOTE: I am not going to test the openai api call, I'm going to use use mocking from the unittest.mock module to "hardcode" api responses
 
         self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
         user_content = "How do I get to the gym?"
         workflow_triggered, relevant_definitions, relevant_sections = self.chat.similarity_search(user_content)
 
-        # Check that if the api returns NONE: 
-        testing = True
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append("ANSWER: test to see what happens when if the API believes it successfully answered the question with the resources provided")
+        # Check that if the api returns an answer: 
+        mock__get_api_response.return_value = "ANSWER: test to see what happens when if the API believes it successfully answered the question with the resources provided"
         result = self.chat.resource_augmented_query(user_question = user_content, 
                                                     df_definitions = relevant_definitions, 
-                                                    df_search_sections = relevant_sections,
-                                                    testing = testing,
-                                                    manual_responses_for_testing = manual_responses_for_testing)
+                                                    df_search_sections = relevant_sections)
         assert result["success"]
         assert result["path"] == "ANSWER:"
         assert result["answer"] == "test to see what happens when if the API believes it successfully answered the question with the resources provided"
         assert result["reference"] == []
 
-        # Check that if the api returns NONE: 
-        testing = True
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append("NONE:") 
+        # # Check when the api returns NONE: 
+        mock__get_api_response.return_value = "NONE:"
         result = self.chat.resource_augmented_query(user_question = user_content, 
                                                             df_definitions = relevant_definitions, 
-                                                            df_search_sections = relevant_sections,
-                                                            testing = testing,
-                                                            manual_responses_for_testing = manual_responses_for_testing)
+                                                            df_search_sections = relevant_sections)
         assert result["success"]
         assert result["path"] == self.chat.Prefix.NONE.value
         
         
-        # Check the "section_reference" branch
-        testing = True
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append("SECTION: Extract 1, Reference 1.1")
+        # # Check the "section_reference" branch
+        mock__get_api_response.return_value = "SECTION: Extract 1, Reference 1.1"
         result = self.chat.resource_augmented_query(user_question = user_content,
                                                     df_definitions = relevant_definitions, 
-                                                    df_search_sections = relevant_sections,
-                                                    testing = testing,
-                                                    manual_responses_for_testing = manual_responses_for_testing)
+                                                    df_search_sections = relevant_sections)
         assert result["success"]
         assert result["path"] == self.chat.Prefix.SECTION.value
         assert result["extract"] == 1
         assert result["document"] == 'WRR'
         assert result["section"] == '1.1'
 
-        # Check the despondent user branch
-        testing = True
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append("Test to see what happens when if the API cannot listen to instructions")
-        manual_responses_for_testing.append("SECTION: Extract 1, Reference 1.1") # but after marking its own homework it behaves
-
+        # # Check the despondent user branch
+        mock__get_api_response.side_effect = ["Test to see what happens when if the API cannot listen to instructions", "SECTION: Extract 1, Reference 1.1"]
         result = self.chat.resource_augmented_query(user_question = user_content, 
                                                     df_definitions = relevant_definitions, 
-                                                    df_search_sections = relevant_sections,
-                                                    testing = testing,
-                                                    manual_responses_for_testing = manual_responses_for_testing)
+                                                    df_search_sections = relevant_sections)
         assert result["success"]
         assert result["path"] == self.chat.Prefix.SECTION.value
         assert result["extract"] == 1
         assert result["document"] == 'WRR'
         assert result["section"] == '1.1'
 
-        # Check the stubbornly disobedient branch
-        testing = True
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append("Test to see what happens when if the API cannot listen to instructions")
-        manual_responses_for_testing.append("But even after marking its own homework it cannot listen to instructions")
+        # # Check the stubbornly disobedient branch
+        mock__get_api_response.side_effect = ["Test to see what happens when if the API cannot listen to instructions", "But even after marking its own homework it cannot listen to instructions"]
 
         result = self.chat.resource_augmented_query(user_question = user_content, 
                                                     df_definitions = relevant_definitions, 
-                                                    df_search_sections = relevant_sections,
-                                                    testing = testing,
-                                                    manual_responses_for_testing = manual_responses_for_testing)
+                                                    df_search_sections = relevant_sections)
         assert not result["success"]
         assert result["path"] == "NONE"
         assert result["assistant_response"] == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
@@ -429,7 +409,9 @@ class TestCorpusChat:
         assert len(used_sections) == 0 # no references
 
 
-    def test_user_provides_input(self):
+    # NOTE: I'm going to use use mocking from the unittest.mock module to "hardcode" api responses
+    @patch.object(CorpusChat, '_get_api_response')
+    def test_user_provides_input(self, mock__get_api_response):
         # check the response if the system is stuck
         self.chat.system_state = self.chat.State.STUCK
         user_content = "How do I get to the Gym?"
@@ -446,14 +428,11 @@ class TestCorpusChat:
 
         # test the workflow if the system answers the question as hoped
         self.chat.system_state = self.chat.State.RAG
-        testing = True # don't make call to openai API, use the canned response below
         flag = "ANSWER:"
         input_response = 'Drive to West Gate. Reference: 2'
         output_response = 'Drive to West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
-        manual_responses_for_testing = [flag + input_response]
-        self.chat.user_provides_input(user_content,
-                                       testing = testing,
-                                       manual_responses_for_testing = manual_responses_for_testing)
+        mock__get_api_response.return_value = flag + input_response
+        self.chat.user_provides_input(user_content)
         assert self.chat.messages[-1]["role"] == "assistant"
         assert self.chat.messages[-1]["content"].strip() == output_response
         assert self.chat.system_state == self.chat.State.RAG # rag
@@ -467,14 +446,10 @@ class TestCorpusChat:
 
         # test the workflow if the system cannot find useful content in the supplied data
         self.chat.system_state = self.chat.State.RAG
-        testing = True # don't make call to openai API, use the canned response below
         flag = "NONE:"
         response = ""
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append(flag + response)
-        self.chat.user_provides_input(user_content,
-                                       testing = testing,
-                                       manual_responses_for_testing = manual_responses_for_testing)
+        mock__get_api_response.return_value = flag + input_response
+        self.chat.user_provides_input(user_content)
         assert self.chat.messages[-1]["role"] == "assistant"
         assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NO_RELEVANT_DATA.value
         assert self.chat.messages[-2]["role"] == "user"
@@ -485,22 +460,17 @@ class TestCorpusChat:
 
         # test the workflow if the system needs additional content
         self.chat.system_state = self.chat.State.RAG
-        testing = True # don't make call to openai API, use the canned response below        
         flag = "SECTION:"
         response = "Extract 2, Reference 1.1"
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append(flag + " " + response)
+        first_response = flag + " " + response
         # now the response once it has received the additional data
         flag = "ANSWER:"
         input_response = 'Drive to the West Gate. Reference: 2'
         # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
         output_response = 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
-        manual_responses_for_testing.append(flag + input_response)
-
-
-        self.chat.user_provides_input(user_content,
-                                       testing = testing,
-                                       manual_responses_for_testing = manual_responses_for_testing)
+        second_response = flag + input_response
+        mock__get_api_response.side_effect = [first_response, second_response]
+        self.chat.user_provides_input(user_content)
 
         assert self.chat.messages[-1]["role"] == "assistant"
         assert self.chat.messages[-1]["content"].strip() == output_response
@@ -511,24 +481,19 @@ class TestCorpusChat:
         assert self.chat.system_state == self.chat.State.RAG
 
 
-
         # Test what happens if it calls for a section that it already has
         self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
-        testing = True # don't make call to openai API, use the canned response below        
         flag = "SECTION:"
         response = "Extract 2, Reference A.2(A)(i)"
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append(flag + " " + response)
+        first_response = flag + " " + response
         # now the response once it has received the additional data
         flag = "ANSWER:"
         input_response = 'Drive to the West Gate. Reference: 2'
         # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
-        manual_responses_for_testing.append(flag + input_response)
-        self.chat.user_provides_input(user_content,
-                                       testing = testing,
-                                       manual_responses_for_testing = manual_responses_for_testing)
-
+        second_response = flag + input_response
+        mock__get_api_response.side_effect = [first_response, second_response]
+        self.chat.user_provides_input(user_content)
         assert self.chat.messages[-1]["role"] == "assistant"
         assert self.chat.messages[-1]["content"].strip() == 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
         assert self.chat.messages[-2]["role"] == "user"
@@ -541,14 +506,11 @@ class TestCorpusChat:
         #test what happens if the LLM does not listen to instructions and returns something random
         self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
-        testing = True # don't make call to openai API, use the canned response below
         response = "None of the supplied documentation was relevant"
-        manual_responses_for_testing = []
-        manual_responses_for_testing.append(response)
-        manual_responses_for_testing.append(response) # need to add it twice when checking this branch
-        self.chat.user_provides_input(user_content, 
-                                       testing = testing,
-                                       manual_responses_for_testing = manual_responses_for_testing)
+        first_response = response
+        second_response = response
+        mock__get_api_response.side_effect = [first_response, second_response]
+        self.chat.user_provides_input(user_content)
         assert self.chat.messages[-1]["role"] == "assistant"
         assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
         assert self.chat.messages[-2]["role"] == "user"

@@ -359,7 +359,7 @@ class CorpusChat():
 
     def _get_api_response(self, messages):
         """
-        Fetches a response from the OpenAI API or uses a canned response based on the testing flag.
+        Fetches a response from the OpenAI API (use unittest.mock module to "hardcode" api responses)
 
         Parameters:
         - messages (list): The list of messages to send as context to the OpenAI API.
@@ -428,8 +428,8 @@ class CorpusChat():
         return truncated_messages
 
 
-    def resource_augmented_query(self, user_question, df_definitions, df_search_sections, number_of_options = 3,
-                                 testing = False, manual_responses_for_testing = []):
+    def resource_augmented_query(self, user_question, df_definitions, df_search_sections, number_of_options = 3):
+
         # This function's job is to make sure the response follows the rules or it fails. To this end, it will try a second call to the LLM 
         # if the fist call does not follow the rules. The second call will include a description of what was wrong with the fist answer. If,
         # after the second call, the LLM still does not return a response that follows the rules, this will return a False value for success.
@@ -450,11 +450,11 @@ class CorpusChat():
         # TODO: Ensure that the user_provides_input method takes responsibility for setting self.system_state = CorpusChat.State.STUCK
         #       if the result is unsuccessful
 
-# Here are the dictionary items returned from self._check_response()
-#{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction} 
-#{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference}
-#{"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
-#{"success": True, "path": "NONE:"}
+        # Here are the dictionary items returned from self._check_response()
+        #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction} 
+        #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference}
+        #{"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
+        #{"success": True, "path": "NONE:"}
 
         if self.system_state != CorpusChat.State.RAG:
             logger.error("resource_augmented_query method called but the the system is not in rag state")
@@ -478,10 +478,7 @@ class CorpusChat():
             system_message = [{"role": "system", "content": system_content}]
             truncated_chat = self._truncate_message_list(system_message, chat_messages, 2000)
 
-            if testing and len(manual_responses_for_testing) > 0:
-                response = manual_responses_for_testing[0]
-            else:
-                response = self._get_api_response(messages = truncated_chat)
+            response = self._get_api_response(messages = truncated_chat)
 
             check_result = self._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
             if check_result["success"]:
@@ -498,10 +495,7 @@ class CorpusChat():
                                         {"role": "assistant", "content": response},
                                         {"role": "user", "content": check_result["llm_followup_instruction"]}]
 
-            if testing and len(manual_responses_for_testing) > 1:
-                response = manual_responses_for_testing[1]
-            else:
-                response = self._get_api_response(messages = despondent_user_messages)
+            response = self._get_api_response(messages = despondent_user_messages)
 
             check_result = self._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
             if check_result["success"]:
@@ -519,18 +513,8 @@ class CorpusChat():
 
 
 
-#     def chat_completion(self, user_content, testing = False, manual_responses_for_testing = []):
-#         self.user_provides_input(user_content, testing, manual_responses_for_testing)                        
-#         return self.messages[-1]["content"]
-
-    # Note: To test the workflow I need some way to control the openai API responses. I have chosen to do this with the two parameters
-    #       testing: a flag. If false the function will run calling the openai api for responses. If false the function will 
-    #                        select the response from the list of responses manual_responses_for_testing
-    #       manual_responses_for_testing: A list of text. If testing == True, these values will be used as if they were the 
-    #                                     the response from the API. This function can make multiple calls to the API so the i-th
-    #                                     row in the list corresponds to the i-th call of the API
-    #  
-    def user_provides_input(self, user_content, testing = False, manual_responses_for_testing = []):
+    # Note: To test the workflow I need some way to control the openai API responses. I have chosen to do this with unittest.mock module to "hardcode" api responses
+    def user_provides_input(self, user_content):
         
         if user_content is None:
             logger.error(f"{self.user_name}: user_provides_input() function received an empty input. This should not have happened and is an indication there is a bug in the frontend. The system will be placed into a 'stuck' status")
@@ -561,8 +545,8 @@ class CorpusChat():
                     
 
             else: # Retrieval step returns data
-                result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3,
-                                                       testing = testing, manual_responses_for_testing = manual_responses_for_testing)
+                result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3)
+
                 if not result["success"]:
                     logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
                     return self.execute_path_for_unsuccessful_rag(user_content, df_definitions, df_search_sections)
@@ -581,7 +565,7 @@ class CorpusChat():
                 elif result["path"] == CorpusChat.Prefix.SECTION.value:
                     #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
                     logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
-                    return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result, testing, manual_responses_for_testing)
+                    return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result)
 
                 else:
                     logger.error("Note: RAG returned an unexpected response")
@@ -795,7 +779,7 @@ class CorpusChat():
         return
 
 
-    def execute_path_for_additional_sections_requested(self, user_content, df_definitions, df_search_sections, result, testing, manual_responses_for_testing):
+    def execute_path_for_additional_sections_requested(self, user_content, df_definitions, df_search_sections, result):
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_additional_sections_requested()")
 
         # Asking for an invalid section or a section that is already in the RAG
@@ -806,8 +790,7 @@ class CorpusChat():
             force = True
 
         if force:
-            result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=2,
-                                                    testing = testing, manual_responses_for_testing = manual_responses_for_testing[1:])
+            result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=2)
 
         else:
             df_search_sections = self.add_section_to_resource(result, df_definitions, df_search_sections)
@@ -818,8 +801,7 @@ class CorpusChat():
                 return
 
             # ... and try again with new resources
-            result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3,
-                                                    testing = testing, manual_responses_for_testing = manual_responses_for_testing[1:])
+            result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3)
         
         if result["path"] == CorpusChat.Prefix.ANSWER.value:
             logger.log(DEV_LEVEL, "Note: Question answered with the additional information")
