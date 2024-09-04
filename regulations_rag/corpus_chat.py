@@ -95,6 +95,7 @@ class CorpusChat():
 
         self.rerank_algo = rerank_algo
         self.reset_conversation_history()
+        self.token_limit_when_truncating_message_queue = 3500
 
     def reset_conversation_history(self):
         logger.log(ANALYSIS_LEVEL, f"{self.user_name}: Reset Conversation History")        
@@ -387,7 +388,7 @@ class CorpusChat():
         response_text = response.choices[0].message.content
         return response_text
 
-    def _truncate_message_list(self, system_message, message_list, token_limit=2000):
+    def _truncate_message_list(self, system_message, message_list, token_limit = 3500):
         """
         Truncates the message list to fit within a specified token limit, ensuring the inclusion of the system message 
         and the most recent messages from the message list. The function guarantees that the returned list always contains 
@@ -476,7 +477,7 @@ class CorpusChat():
 
             # Create a temporary message list. We will only add the messages to the chat history if we get well formatted answers
             system_message = [{"role": "system", "content": system_content}]
-            truncated_chat = self._truncate_message_list(system_message, chat_messages, 2000)
+            truncated_chat = self._truncate_message_list(system_message, chat_messages, self.token_limit_when_truncating_message_queue)
 
             response = self._get_api_response(messages = truncated_chat)
 
