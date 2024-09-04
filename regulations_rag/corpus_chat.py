@@ -537,11 +537,11 @@ class CorpusChat():
             if (len(df_definitions) + len(df_search_sections) == 0): # unable to find any relevant text in the database
                 if len(self.messages) < 2:
                     logger.log(DEV_LEVEL, "Executing path for no retrieval and no conversation history")
-                    return self.execute_path_no_retrieval_no_conversation_history()
+                    return self.execute_path_no_retrieval_no_conversation_history(user_content)
                     
                 else:
                     logger.log(DEV_LEVEL, "Executing path for no retrieval but with conversation history")
-                    return self.execute_path_no_retrieval_with_conversation_history()
+                    return self.execute_path_no_retrieval_with_conversation_history(user_content)
                     
 
             else: # Retrieval step returns data
@@ -723,7 +723,7 @@ class CorpusChat():
 
     The default behaviour here is to do nothing
     """ 
-    def execute_path_no_retrieval_no_conversation_history(self):
+    def execute_path_no_retrieval_no_conversation_history(self, user_content):
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_no_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
         self.system_state = CorpusChat.State.RAG         
         self.append_content("user", user_content)       
@@ -736,7 +736,7 @@ class CorpusChat():
 
     The default behaviour here is to do nothing
     """ 
-    def execute_path_no_retrieval_with_conversation_history(self):
+    def execute_path_no_retrieval_with_conversation_history(self, user_content):
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_with_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
         self.system_state = CorpusChat.State.RAG         
         self.append_content("user", user_content)       
