@@ -34,32 +34,141 @@ class TestCorpusChat:
     def test_construction(self):
         assert True
 
-    def test_append_content(self):
-        self.chat.append_content('user', 'Question: What documents are required')
-        assert len(self.chat.messages) == 1
-        assert self.chat.messages[-1]['content'] == 'Question: What documents are required'
-        assert self.chat.messages[-1]['role'] == 'user'
+    def create_dummy_definitions_and_search_data(self):
+        dfns = []
+        dfns.append(["WRR", "1", "My definition from WRR"])
+        dfns.append(["Plett", "A.1", "My definition from Plett"])
+        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
+        sections = []
+        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
+        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
+        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
+        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
+        return df_definitions, df_search_sections
 
-        assert len(self.chat.messages_without_rag) == 1
-        assert self.chat.messages_without_rag[-1]['role'] == 'user'
-        assert self.chat.messages_without_rag[-1]['content'] == 'What documents are required'
+    def test_create_openai_system_message(self):
+        role = 'system'
+        content = "Your system prompt here"
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+        other_text = {"case_1": "explicit additional instructions in case_1", "case_2": "explicit additional instructions in case_2"}
+        system_dict = {"role": role, "content": content, "definitions": df_definitions, "sections": df_search_sections, "other_text": other_text}
+        
+        openai_system_dict = self.chat.create_openai_system_message(system_dict)
+        keys_list = list(openai_system_dict.keys())
+        assert len(keys_list) == 2
+        assert 'role' in keys_list
+        assert 'content' in keys_list
+        assert openai_system_dict['role'] == role
+        assert openai_system_dict['content'] == content
+
+    def test__add_rag_data_to_question(self):
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+
+        question = "user asks question"
+        output_string = self.chat._add_rag_data_to_question(question, df_definitions, df_search_sections)
+        expected_text = f'Question: user asks question\n\nExtract 1:\nMy definition from WRR\nExtract 2:\nMy definition from Plett\nExtract 3:\nMy Section 1.2 from WRR\nExtract 4:\nMy Section 1.3 from WRR\nExtract 5:\nMy section A.2(A)(i) from Plett\n'
+        assert output_string == expected_text
+
+    def test_create_openai_user_message(self):
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+
+        role = "user"
+        content = "User question here"
+        other_text = {"case_1": "explicit additional instructions in case_1", "case_2": "explicit additional instructions in case_2"}
+        user_dict = {"role": role, "content": content, "definitions": df_definitions, "sections": df_search_sections, "other_text": other_text}
+
+        openai_user_dict = self.chat.create_openai_user_message(user_dict)
+        keys_list = list(openai_user_dict.keys())
+        assert len(keys_list) == 2
+        assert 'role' in keys_list
+        assert 'content' in keys_list
+        assert openai_user_dict['role'] == role
+        expected_content = f'Question: User question here\n\nExtract 1:\nMy definition from WRR\nExtract 2:\nMy definition from Plett\nExtract 3:\nMy Section 1.2 from WRR\nExtract 4:\nMy Section 1.3 from WRR\nExtract 5:\nMy section A.2(A)(i) from Plett\n'
+        assert openai_user_dict['content'] == expected_content
+
+    def test__reformat_assistant_answer(self):
+        # if there are no sections in the rag, return the raw response 
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+
+        result = {"success": True, "path": "ANSWER:", "answer": "some_text_here", "reference": []}
+
+        result["answer"] = "Some random text here."
+        result["reference"] = [1, 2, 3, 5]
+        formatted_response = self.chat._reformat_assistant_answer(result, df_definitions, df_search_sections)
+        raw_response = 'Some random text here.  \nReference:  \nDefinition 1 from Navigating Whale Rock Ridge  \nDefinition A.1 from Navigating Plett  \nSection 1.2 from Navigating Whale Rock Ridge  \nSection A.2(A)(i) from Navigating Plett  \n'
+        assert formatted_response == raw_response
+
+        result["answer"] = "Hi"
+        result["reference"] = [] # no references
+        formatted_response = self.chat._reformat_assistant_answer(result, df_definitions, df_search_sections)
+        assert result["answer"] == formatted_response
+
+    def test_create_openai_assistant_message(self):
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+
+        role = "assistant"
+        content = "ANSWER: Some random text here. Reference: 1, 2, 3, 5"
+        other_text = {"case_1": "explicit additional instructions in case_1", "case_2": "explicit additional instructions in case_2"}
+        assistant_dict = {"role": role, "content": content, "definitions": df_definitions, "sections": df_search_sections, "other_text": other_text}
+
+        openai_assistant_dict = self.chat.create_openai_assistant_message(assistant_dict)
+        keys_list = list(openai_assistant_dict.keys())
+        assert len(keys_list) == 2
+        assert 'role' in keys_list
+        assert 'content' in keys_list
+        assert openai_assistant_dict['role'] == role
+        expected_content = 'Some random text here.  \nReference:  \nDefinition 1 from Navigating Whale Rock Ridge  \nDefinition A.1 from Navigating Plett  \nSection 1.2 from Navigating Whale Rock Ridge  \nSection A.2(A)(i) from Navigating Plett  \n'
+        assert openai_assistant_dict['content'] == expected_content
+
+
+
+
+    def test_append_content(self):
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+        other_text = {"case_1": "explicit additional instructions in case_1", "case_2": "explicit additional instructions in case_2"}
+        
+        self.chat.append_content(role ='user', content = 'Question: What documents are required', df_definitions = df_definitions, df_sections = df_search_sections, other_text = other_text)
+        assert len(self.chat.messages_intermediate) == 1
+        assert self.chat.messages_intermediate[-1]['content'] == 'Question: What documents are required'
+        assert self.chat.messages_intermediate[-1]['role'] == 'user'
+        # add the same item twice in a row
+        self.chat.append_content(role ='user', content = 'Question: What documents are required', df_definitions = df_definitions, df_sections = df_search_sections, other_text = other_text)
+        assert len(self.chat.messages_intermediate) == 1
+
 
         # Try to add content for a role that does not exist
         self.chat.reset_conversation_history()
         self.chat.append_content('other_role', 'Question: What documents are required')
-        assert len(self.chat.messages) == 0
-        assert len(self.chat.messages_without_rag) == 0
+        assert len(self.chat.messages_intermediate) == 0
 
         self.chat.reset_conversation_history()
         self.chat.append_content('assistant', 'Answer here')
-        assert len(self.chat.messages) == 1
-        assert self.chat.messages[-1]['content'] == 'Answer here'
-        assert self.chat.messages[-1]['role'] == 'assistant'
+        assert len(self.chat.messages_intermediate) == 1
+        assert self.chat.messages_intermediate[-1]['content'] == 'Answer here'
+        assert self.chat.messages_intermediate[-1]['role'] == 'assistant'
 
-        assert len(self.chat.messages_without_rag) == 1
-        assert self.chat.messages_without_rag[-1]['role'] == 'assistant'
-        assert self.chat.messages_without_rag[-1]['content'] == 'Answer here'
+    def test_format_messages_for_openai(self):
+        self.chat.reset_conversation_history()
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+        df_definitions = pd.DataFrame()
+        other_text = {"case_1": "explicit additional instructions in case_1", "case_2": "explicit additional instructions in case_2"}
+        user_dict = {'role': 'user', 'content': 'What documents are required', 'definitions':  df_definitions, 'sections': df_search_sections, 'other_text': other_text}
+        self.chat.append_content(role ='user', content = 'Question: What documents are required', df_definitions = df_definitions, df_sections = df_search_sections, other_text = other_text)
 
+        content = "ANSWER: Some random text here. Reference: 1, 2, 3, 5"
+        other_text = {"case_1": "explicit additional instructions in case_1", "case_2": "explicit additional instructions in case_2"}
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+        assistant_dict = {"role": 'assistant', "content": content, "definitions": df_definitions, "sections": df_search_sections, "other_text": other_text}
+        self.chat.append_content(role ='assistant', content = content, df_definitions = df_definitions, df_sections = df_search_sections, other_text = other_text)
+
+        messages = self.chat.format_messages_for_openai()
+        assert len(messages) == 2
+
+        manual_messages = []
+        manual_messages.append(self.chat.create_openai_user_message(user_dict))
+        manual_messages.append(self.chat.create_openai_assistant_message(assistant_dict))
+
+        assert messages[-1]['content'] == manual_messages[-1]['content']
 
     def test_similarity_search(self):
         # Check that random chit-chat to the main dataset does not return any hits from the embeddings
@@ -81,34 +190,19 @@ class TestCorpusChat:
         user_type = "a Visitor"
         corpus_description = "the Simplest way to Navigate Plett"
 
-        expected_message = f"You are answering questions about {corpus_description} for {user_type} based only on the reference extracts provided. You have 3 options:\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n2) Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word 'SECTION:' followed by 'Extract extract_number, Reference section_reference' - for example SECTION: Extract 1, Reference {ref_string}.\n3) State 'NONE:' and nothing else in all other cases\n"
+        expected_message = f"You are answering questions about {corpus_description} for {user_type} based only on the reference extracts provided. You have 3 options:\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word 'SECTION:' followed by 'Extract extract_number, Reference: section_reference' - for example SECTION: Extract 1, Reference: {ref_string}.\n3) State 'NONE:' and nothing else in all other cases\n"
         assert self.chat._create_system_message(number_of_options=3, review = False) == expected_message
 
-        expected_message = f"You are answering questions about {corpus_description} for {user_type} based only on the reference extracts provided. You have 2 options:\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n2) State 'NONE:' and nothing else in all other cases\n"
+        expected_message = f"You are answering questions about {corpus_description} for {user_type} based only on the reference extracts provided. You have 2 options:\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) State 'NONE:' and nothing else in all other cases\n"
         assert self.chat._create_system_message(number_of_options=2, review = False) == expected_message
 
-        expected_message = f"Please review your answer. You were asked to assist the user by responding to their question in 1 of 3 ways but your response does not follow the expected format. Please reformat your response so that it follows the requested format.\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n2) Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word 'SECTION:' followed by 'Extract extract_number, Reference section_reference' - for example SECTION: Extract 1, Reference {ref_string}.\n3) State 'NONE:' and nothing else in all other cases\n"
+        expected_message = f"Please review your answer. You were asked to assist the user by responding to their question in 1 of 3 ways but your response does not follow the expected format. Please reformat your response so that it follows the requested format.\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word 'SECTION:' followed by 'Extract extract_number, Reference: section_reference' - for example SECTION: Extract 1, Reference: {ref_string}.\n3) State 'NONE:' and nothing else in all other cases\n"
         assert self.chat._create_system_message(number_of_options=3, review = True) == expected_message
 
-        expected_message = f"Please review your answer. You were asked to assist the user by responding to their question in 1 of 2 ways but your response does not follow the expected format. Please reformat your response so that it follows the requested format.\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n2) State 'NONE:' and nothing else in all other cases\n"
+        expected_message = f"Please review your answer. You were asked to assist the user by responding to their question in 1 of 2 ways but your response does not follow the expected format. Please reformat your response so that it follows the requested format.\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) State 'NONE:' and nothing else in all other cases\n"
         assert self.chat._create_system_message(number_of_options=2, review = True) == expected_message
 
 
-    def test__add_rag_data_to_question(self):
-        dfns = []
-        dfns.append(["WRR", "1", "My definition from WRR"])
-        dfns.append(["Plett", "A.1", "My definition from Plett"])
-        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-        sections = []
-        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
-        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
-        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-
-        question = "user asks question"
-        output_string = self.chat._add_rag_data_to_question(question, df_definitions, df_search_sections)
-        expected_text = f'Question: user asks question\n\nExtract 1:\nMy definition from WRR\nExtract 2:\nMy definition from Plett\nExtract 3:\nMy Section 1.2 from WRR\nExtract 4:\nMy Section 1.3 from WRR\nExtract 5:\nMy section A.2(A)(i) from Plett\n'
-        assert output_string == expected_text
 
     def test__truncate_message_list(self):
         l = [{"content": "1"}, 
@@ -134,22 +228,31 @@ class TestCorpusChat:
         assert truncated[4]["content"] == "10"
 
     def test__check_response(self):
-        dfns = []
-        dfns.append(["WRR", "1", "My definition from WRR"])
-        dfns.append(["Plett", "A.1", "My definition from Plett"])
-        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-        sections = []
-        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
-        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
-        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+
+        response = self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
+        check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        assert check_result["success"]
+        assert check_result["path"] == "ERROR:"
+        assert check_result["answer"] == "The call to the LLM resulted in a response that did not fit parameters, even after retrying it. Please clear the chat history and retry your query."        
+        assert check_result["reference"] == []
 
         # Check if the response does not contain any keywords
         response = "I did not follow any instructions"
         check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
-        assert check_result["path"] == "NONE"
-        assert check_result["llm_followup_instruction"] == "Your response, did not begin with one of the keywords, 'ANSWER:', 'SECTION:' or 'NONE:'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n"
+        assert check_result["path"] == "NONE:"
+        assert check_result["llm_followup_instruction"] == "Your response, did not begin with one of the keywords, 'ANSWER:', 'SECTION:' or 'NONE:'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n"
+
+
+        # Check if the response contains multiple instances of the keyword "References:"
+        # NOTE: this is not a good representative response from the LLM. It is only used here for testing
+        response = "ANSWER: There are a few points to consider. \na) In this case you need Reference: 1, 3. \nb) In this case you need Reference: 2, 4. \n\n Which means you need Reference: 1, 2, 3, 4"
+        check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        assert not check_result["success"]
+        assert check_result["path"] == "ANSWER:"
+        assert check_result["llm_followup_instruction"] == f"When answering the question, you used the keyword '{self.chat.reference_key_word}' more than once. It is vitally important that this keyword is only used once in your answer and then only at the end of the answer followed only by an integer, comma separated list of the extracts used. Please reformat your response so that there is only one instance of the keyword '{self.chat.reference_key_word}' and it is at the end of the answer."
+
 
         # Check ANSWER:
         path = "ANSWER:"
@@ -346,162 +449,114 @@ class TestCorpusChat:
                                                     df_definitions = relevant_definitions, 
                                                     df_search_sections = relevant_sections)
         assert not result["success"]
-        assert result["path"] == "NONE"
+        assert result["path"] == "NONE:"
         assert result["assistant_response"] == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
-
-
-    def test_collect_references(self):
-        dfns = []
-        dfns.append(["WRR", "1", "My definition from WRR"])
-        dfns.append(["Plett", "A.1", "My definition from Plett"])
-        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-        sections = []
-        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
-        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
-        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-
-        df_references = self.chat.collect_references(df_definitions, df_search_sections)
-        assert len(df_references) == 5
-
-        dfns = []
-        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-        sections = []
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-        df_references = self.chat.collect_references(df_definitions, df_search_sections)
-        assert len(df_references) == 0
-
-        sections = []
-        sections = []
-        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-        df_references = self.chat.collect_references(df_definitions, df_search_sections)
-        assert len(df_references) == 1
-
-
-    def test_reformat_assistant_answer(self):
-        # if there are no sections in the rag, return the raw response 
-        dfns = []
-        dfns.append(["WRR", "1", "My definition from WRR"])
-        dfns.append(["Plett", "A.1", "My definition from Plett"])
-        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-        sections = []
-        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
-        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
-        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-
-        result = {"success": True, "path": "ANSWER:", "answer": "some_text_here", "reference": []}
-
-        result["answer"] = "Some random text here."
-        result["reference"] = [1, 2, 3, 5]
-        formatted_response, used_definitions, used_sections = self.chat.reformat_assistant_answer(result, df_definitions, df_search_sections)
-        raw_response = 'Some random text here.  \nReference:  \nDefinition 1 from Navigating Whale Rock Ridge  \nDefinition A.1 from Navigating Plett  \nSection 1.2 from Navigating Whale Rock Ridge  \nSection A.2(A)(i) from Navigating Plett  \n'
-        assert formatted_response == raw_response
-        assert len(used_definitions) == 2
-        assert len(used_sections) == 2
-
-        result["answer"] = "Hi"
-        result["reference"] = [] # no references
-        formatted_response, used_definitions, used_sections = self.chat.reformat_assistant_answer(result, df_definitions, df_search_sections)
-        assert result["answer"] == formatted_response
-        assert len(used_definitions) == 2 # even though there are no references, I keep the definitions
-        assert len(used_sections) == 0 # no references
 
 
     # NOTE: I'm going to use use mocking from the unittest.mock module to "hardcode" api responses
     @patch.object(CorpusChat, '_get_api_response')
     def test_user_provides_input(self, mock__get_api_response):
+        self.chat.reset_conversation_history()
         # check the response if the system is stuck
         self.chat.system_state = self.chat.State.STUCK
         user_content = "How do I get to the Gym?"
         self.chat.user_provides_input(user_content)
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"] == self.chat.Errors.STUCK.value
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"] == self.chat.Errors.STUCK.value
         assert self.chat.system_state == self.chat.State.STUCK
 
         # check the response if the system is in an unknown state
+        self.chat.reset_conversation_history()
         self.chat.system_state = "random state not in list"
         self.chat.user_provides_input(user_content)
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"] == self.chat.Errors.UNKNOWN_STATE.value
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"] == self.chat.Errors.UNKNOWN_STATE.value
 
         # test the workflow if the system answers the question as hoped
+        self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
-        flag = "ANSWER:"
+        flag = "ANSWER: "
         input_response = 'Drive to West Gate. Reference: 2'
         output_response = 'Drive to West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
         mock__get_api_response.return_value = flag + input_response
         self.chat.user_provides_input(user_content)
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"].strip() == output_response
+        messages = self.chat.format_messages_for_openai()
+        assert messages[-1]["role"] == "assistant"
+        assert messages[-1]["content"].strip() == output_response
         assert self.chat.system_state == self.chat.State.RAG # rag
-        assert self.chat.messages[-2]["role"] == "user"
-        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
-        assert self.chat.messages_without_rag[-2]["role"] == "user"
-        assert self.chat.messages_without_rag[-2]["content"].strip() == 'How do I get to the Gym?'
-        assert self.chat.messages_without_rag[-1]["role"] == "assistant"
-        assert self.chat.messages_without_rag[-1]["content"].strip() == output_response
+        assert messages[-2]["role"] == "user"
+        assert messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"].strip() == 'How do I get to the Gym?'
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"].strip() == flag + input_response
 
 
         # test the workflow if the system cannot find useful content in the supplied data
         self.chat.system_state = self.chat.State.RAG
-        flag = "NONE:"
+        flag = "NONE: "
         response = ""
-        mock__get_api_response.return_value = flag + input_response
+        mock__get_api_response.return_value = flag 
         self.chat.user_provides_input(user_content)
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NO_RELEVANT_DATA.value
-        assert self.chat.messages[-2]["role"] == "user"
-        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
-        assert self.chat.messages_without_rag[-2]["role"] == "user"
-        assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
+        messages = self.chat.format_messages_for_openai()
+        assert messages[-1]["role"] == "assistant"
+        assert messages[-1]["content"].strip() == self.chat.Errors.NO_RELEVANT_DATA.value.replace("ERROR: ", "")
+        assert messages[-2]["role"] == "user"
+        assert messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"].strip() == self.chat.Errors.NO_RELEVANT_DATA.value
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"].strip() == user_content
         assert self.chat.system_state == self.chat.State.RAG
 
         # test the workflow if the system needs additional content
         self.chat.system_state = self.chat.State.RAG
-        flag = "SECTION:"
+        flag = "SECTION: "
         response = "Extract 2, Reference 1.1"
-        first_response = flag + " " + response
+        first_response = flag + response
         # now the response once it has received the additional data
-        flag = "ANSWER:"
+        flag = "ANSWER: "
         input_response = 'Drive to the West Gate. Reference: 2'
         # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
         output_response = 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
         second_response = flag + input_response
         mock__get_api_response.side_effect = [first_response, second_response]
         self.chat.user_provides_input(user_content)
-
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"].strip() == output_response
-        assert self.chat.messages[-2]["role"] == "user"
-        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nExtract 3:\n# 1 Navigating Whale Rock Ridge\n\n## 1.1 To West Gate\n\nTurn right out driveway. At the traffic circle, take the first exit. Proceed to West Gate'
-        assert self.chat.messages_without_rag[-2]["role"] == "user"
-        assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
+        messages = self.chat.format_messages_for_openai()
+        assert messages[-1]["role"] == "assistant"
+        assert messages[-1]["content"].strip() == output_response
+        assert messages[-2]["role"] == "user"
+        assert messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nExtract 3:\n# 1 Navigating Whale Rock Ridge\n\n## 1.1 To West Gate\n\nTurn right out driveway. At the traffic circle, take the first exit. Proceed to West Gate'
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"].strip() == second_response
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"].strip() == user_content
         assert self.chat.system_state == self.chat.State.RAG
 
 
         # Test what happens if it calls for a section that it already has
         self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
-        flag = "SECTION:"
+        flag = "SECTION: "
         response = "Extract 2, Reference A.2(A)(i)"
         first_response = flag + " " + response
         # now the response once it has received the additional data
-        flag = "ANSWER:"
+        flag = "ANSWER: "
         input_response = 'Drive to the West Gate. Reference: 2'
         # NOTE this output_response differs to the previous one because we have changed the search_sections while leaving the input_response to refer to extract 2 (which is now different)
         second_response = flag + input_response
         mock__get_api_response.side_effect = [first_response, second_response]
         self.chat.user_provides_input(user_content)
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"].strip() == 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
-        assert self.chat.messages[-2]["role"] == "user"
-        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
-        assert self.chat.messages_without_rag[-2]["role"] == "user"
-        assert self.chat.messages_without_rag[-2]["content"].strip() == user_content
+        messages = self.chat.format_messages_for_openai()
+        assert messages[-1]["role"] == "assistant"
+        assert messages[-1]["content"].strip() == 'Drive to the West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
+        assert messages[-2]["role"] == "user"
+        assert messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"].strip() == second_response
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"].strip() == user_content
         assert self.chat.system_state == self.chat.State.RAG
-
 
         #test what happens if the LLM does not listen to instructions and returns something random
         self.chat.reset_conversation_history()
@@ -511,34 +566,17 @@ class TestCorpusChat:
         second_response = response
         mock__get_api_response.side_effect = [first_response, second_response]
         self.chat.user_provides_input(user_content)
-        assert self.chat.messages[-1]["role"] == "assistant"
-        assert self.chat.messages[-1]["content"].strip() == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
-        assert self.chat.messages[-2]["role"] == "user"
-        assert self.chat.messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
+        messages = self.chat.format_messages_for_openai()
+        assert messages[-1]["role"] == "assistant"
+        assert messages[-1]["content"].strip() == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value.replace("ERROR: ", "")
+        assert messages[-2]["role"] == "user"
+        assert messages[-2]["content"].strip() == 'Question: How do I get to the Gym?\n\nExtract 1:\nThe Gym: The Health and Fitness Center on Piesang Valley Road\nExtract 2:\nA.2 Directions\nA.2(A) To the Gym\nA.2(A)(i) From West Gate (see 1.1)\nTurn left into Longships Drive and right at the T-junction into Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(ii) From Main Gate (see 1.2)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym\nA.2(A)(iii) From South Gate (see 1.3)\nTurn right Whale Rock Drive. At the T-junction turn right into Robberg Road. Turn left into Green Point Avenue and arrive at the gym'
         assert self.chat.system_state == self.chat.State.STUCK
 
 
     def test_add_section_to_resource(self):
-#         dfns = []
-#         dfns.append(["GDPR", "4(2)", "My definition from GDPR"])
-#         dfns.append(["Article_30_5", "", "My definition from article_30_5"])
-#         df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-#         sections = []
-#         sections.append(["GDPR", "1", "My Section 1 from GDPR"])
-#         sections.append(["GDPR", "2", "My Section 2 from GDPR"])
-#         sections.append(["Article_30_5", "A.4(i)", "Fake section from Article_30_5"])
-#         df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-
-        dfns = []
-        dfns.append(["WRR", "1", "My definition from WRR"])
-        dfns.append(["Plett", "A.1", "My definition from Plett"])
-        df_definitions = pd.DataFrame(dfns, columns = ["document", "section_reference", "definition"])
-        sections = []
-        sections.append(["WRR", "1.2", "My Section 1.2 from WRR"])
-        sections.append(["WRR", "1.3", "My Section 1.3 from WRR"])
-        sections.append(["Plett", "A.2(A)(i)", "My section A.2(A)(i) from Plett"])
-        df_search_sections = pd.DataFrame(sections, columns = ["document", "section_reference", "regulation_text"])
-
+        df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
+        
         # check if the section string passes validation but does not refer to something in the document
         result = {"success": True, "path": "SECTION:", "extract": 1, "document": 'WRR', "section": "9.1"}
 
@@ -566,13 +604,4 @@ class TestCorpusChat:
         assert df_updated.iloc[2]['section_reference'] == 'A.2(A)(i)'
         assert df_updated.iloc[3]['section_reference'] == '1.1'
 
-
-# #     def test_enrich_user_request_for_documentation(self):
-# #         messages_without_rag = [{'role': 'user', 'content': 'Can foreign nationals send money home?'},
-# #                                 {'role': 'assistant', 'content': 'Yes, foreign nationals can send money abroad if they meet certain conditions. Foreign nationals temporarily in South Africa are required to declare whether they are in possession of foreign assets upon arrival. If they complete the necessary declarations and undertakings, they may be permitted to conduct their banking on a resident basis, dispose of or invest their foreign assets, conduct non-resident or foreign currency accounts, and transfer funds abroad. However, they must be able to substantiate the source of the funds and the value of the funds should be reasonable in relation to their income generating activities in South Africa. The completed declarations and undertakings must be retained by the Authorised Dealers for a period of five years. There are also exemptions for single remittance transactions up to R5,000 and transactions where a business relationship has been established. (B.5(A)(i)(d), B.5(A)(i)(e))'}]
-# #         user_content = 'Is there any documentation required?'
-# #         model_to_use = "gpt-3.5-turbo"
-# #         response = self.chat.enrich_user_request_for_documentation(user_content, messages_without_rag, model_to_use)
-# #         print(response)
-# #         assert(response.startswith('What documentation is required as evidence for'))
 
