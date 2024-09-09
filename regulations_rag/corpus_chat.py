@@ -332,7 +332,7 @@ class CorpusChat():
         return sys_instruction
 
 
-    def _check_response(self, response, df_definitions, df_sections):
+    def _check_response(self, llm_response_text, df_definitions, df_sections):
         # Return dictionaries:
         #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction} 
         #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference}
@@ -340,9 +340,9 @@ class CorpusChat():
         #{"success": True, "path": "NONE:"}
 
 
-        if response.startswith(CorpusChat.Prefix.ANSWER.value):
+        if llm_response_text.startswith(CorpusChat.Prefix.ANSWER.value):
             prefix = CorpusChat.Prefix.ANSWER.value
-            answer = response[len(prefix):].strip()
+            answer = llm_response_text[len(prefix):].strip()
 
             # the keyword 'self.reference_key_word' appears multiple times. I don't want this because I want to filter the DataFrames to only contain the 
             # subset of information that was used and I have seen instances were, if there are multiple instances of the keyword 'self.reference_key_word'  
@@ -387,9 +387,9 @@ class CorpusChat():
 
             return {"success": True, "path": prefix, "answer": llm_text, "reference": references_as_integers}
 
-        elif response.startswith(CorpusChat.Prefix.SECTION.value):
+        elif llm_response_text.startswith(CorpusChat.Prefix.SECTION.value):
             prefix = CorpusChat.Prefix.SECTION.value
-            request = response[len(prefix):].strip()
+            request = llm_response_text[len(prefix):].strip()
 
             document_name = ""
             section_reference = ""
@@ -430,12 +430,12 @@ class CorpusChat():
 
             return {"success": True, "path": prefix, "extract": extract_number, "document": document_name, "section": section_reference}
 
-        elif response.startswith(CorpusChat.Prefix.NONE.value):
+        elif llm_response_text.startswith(CorpusChat.Prefix.NONE.value):
             return {"success": True, "path": CorpusChat.Prefix.NONE.value}
 
-        elif response.startswith(CorpusChat.Prefix.ERROR.value):
+        elif llm_response_text.startswith(CorpusChat.Prefix.ERROR.value):
             prefix = CorpusChat.Prefix.ERROR.value
-            answer = response[len(prefix):].strip()
+            answer = llm_response_text[len(prefix):].strip()
 
             references = []
             cleaned_references = []
@@ -698,35 +698,38 @@ class CorpusChat():
             else: # Retrieval step returns data
                 result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3)
 
-                if not result["success"]:
-                    logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
-                    return self.execute_path_for_unsuccessful_rag(user_content, df_definitions, df_search_sections)
-                    
-
-                if result["path"] == CorpusChat.Prefix.ANSWER.value:
-                    #   result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
-                    logger.log(DEV_LEVEL, "corpus_chat.resource_augmented_query answered the question using the Retrieved text")
-                    return self.execute_path_for_successful_rag(user_content, df_definitions, df_search_sections, result)
-
-                elif result["path"] == CorpusChat.Prefix.NONE.value:
-                    #   result {"success": True, "path": "NONE:"}
-                    logger.info("corpus_chat.resource_augmented_query was not not able to find relevant information in the retrieved text")
-                    return self.execute_path_for_no_relevant_information_in_retrieved_text(user_content, df_definitions, df_search_sections)
-
-                elif result["path"] == CorpusChat.Prefix.SECTION.value:
-                    #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
-                    logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
-                    return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result)
-
-                else:
-                    logger.error("Note: RAG returned an unexpected response")
-                    self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
-                    self.system_state = CorpusChat.State.STUCK # We are at a dead end.
-                    return
+                return self.select_path_and_execute(user_content, df_definitions, df_search_sections, result)
         else:
             logger.error("The system is in an unknown state")
             self.append_content("assistant", CorpusChat.Errors.UNKNOWN_STATE.value)
             return
+
+    def select_path_and_execute(self, user_content, df_definitions, df_search_sections, result):
+        if not result["success"]:
+            logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
+            return self.execute_path_for_unsuccessful_rag(user_content, df_definitions, df_search_sections)
+            
+        if result["path"] == CorpusChat.Prefix.ANSWER.value:
+            #   result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
+            logger.log(DEV_LEVEL, "corpus_chat.resource_augmented_query answered the question using the Retrieved text")
+            return self.execute_path_for_successful_rag(user_content, df_definitions, df_search_sections, result)
+
+        elif result["path"] == CorpusChat.Prefix.NONE.value:
+            #   result {"success": True, "path": "NONE:"}
+            logger.info("corpus_chat.resource_augmented_query was not not able to find relevant information in the retrieved text")
+            return self.execute_path_for_no_relevant_information_in_retrieved_text(user_content, df_definitions, df_search_sections)
+
+        elif result["path"] == CorpusChat.Prefix.SECTION.value:
+            #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
+            logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
+            return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result)
+
+        else:
+            logger.error("Note: RAG returned an unexpected response")
+            self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
+            self.system_state = CorpusChat.State.STUCK # We are at a dead end.
+            return
+
 
     def add_section_to_resource(self, result, df_definitions, df_search_sections):
         '''
