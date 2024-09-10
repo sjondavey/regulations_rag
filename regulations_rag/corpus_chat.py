@@ -215,6 +215,50 @@ class CorpusChat():
         content_with_rag = self._reformat_assistant_answer(response_dict, df_definitions, df_search_sections)
         return {"role": row['role'], "content": content_with_rag}
 
+    ''' 
+    An intermediate method to extract the LLM and the references from the "ANSWER:" path which can then be format
+    for the various output (or input) formats
+    '''
+    def _extract_assistant_answer_and_references(self, result, df_definitions, df_search_sections):
+        references_list = [] # columns = ["document", "section_reference", "is_definition", "text"]
+        
+        #if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
+        if not (result["success"] == True): # works for ANSWER and ERROR paths
+            return self.Errors.UNKNOWN_STATE.value
+            self.system_state = CorpusChat.State.STUCK
+        # Extract and clean references from the raw response
+        cleaned_references = result["reference"]
+
+        # Early return if no references found. Keep the definitions but empty the search sections
+        if not cleaned_references:
+            headings = df_search_sections.columns.to_list()
+            empty_results = pd.DataFrame([], columns = headings)
+            # return result["answer"], df_definitions, empty_results
+            df_references_list = pd.DataFrame(references_list, columns = ["document", "section_reference", "is_definition", "text"])
+            return result["answer"], df_references_list
+
+        integer_references = cleaned_references
+
+        used_definitions = []
+        used_sections = []
+        reference_string = ""
+        number_of_definitions = len(df_definitions)
+        for reference in integer_references:
+            if reference <= number_of_definitions:
+                row_number = reference - 1
+                document_name = self.corpus.get_document(df_definitions.iloc[row_number]["document"]).name
+                section_reference = df_definitions.iloc[row_number]["section_reference"] # can be "" i.e. no reference
+                text = df_definitions.iloc[row_number]["definition"]
+                references_list.append([document_name, section_reference, True, text])
+            else:
+                row_number = reference - number_of_definitions - 1
+                document_name = self.corpus.get_document(df_search_sections.iloc[row_number]["document"]).name
+                section_reference = df_search_sections.iloc[row_number]["section_reference"]
+                text = df_search_sections.iloc[row_number]["regulation_text"]
+                references_list.append([document_name, section_reference, False, text])
+
+        df_references_list = pd.DataFrame(references_list, columns = ["document", "section_reference", "is_definition", "text"])
+        return result['answer'], df_references_list
 
     def _reformat_assistant_answer(self, result, df_definitions, df_search_sections):
         """
@@ -233,61 +277,26 @@ class CorpusChat():
         - DataFrame: ALL the input df_definitions 
         - DataFrame: a subset of the input df_search_sections - the ones referenced in the LLM answer
         """
+        llm_answer, df_references_list = self._extract_assistant_answer_and_references(result, df_definitions, df_search_sections)
 
-        if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
-            return self.Errors.UNKNOWN_STATE.value
-            self.system_state = CorpusChat.State.STUCK
-        # Extract and clean references from the raw response
-        cleaned_references = result["reference"]
-
-        # Early return if no references found. Keep the definitions but empty the search sections
-        if not cleaned_references:
-            headings = df_search_sections.columns.to_list()
-            empty_results = pd.DataFrame([], columns = headings)
-            # return result["answer"], df_definitions, empty_results
-            return result["answer"]
-
-        integer_references = cleaned_references
-
-        used_definitions = []
-        used_sections = []
         reference_string = ""
-        number_of_definitions = len(df_definitions)
-        for reference in integer_references:
-            if reference <= number_of_definitions:
-                row_number = reference - 1
-                document_name = self.corpus.get_document(df_definitions.iloc[row_number]["document"]).name
-                section_reference = df_definitions.iloc[row_number]["section_reference"]
+        formatted_references = ""
+        for index, row in df_references_list.iterrows():
+            document_name = row["document"]
+            section_reference = row["section_reference"]
+            if row["is_definition"]:
                 if section_reference == "":
                     reference_string += f"The definitions in {document_name}  \n"
                 else:
                     reference_string += f"Definition {section_reference} from {document_name}  \n"
-                used_definitions.append(row_number)
             else:
-                row_number = reference - number_of_definitions - 1
-                document_name = self.corpus.get_document(df_search_sections.iloc[row_number]["document"]).name
-                section_reference = df_search_sections.iloc[row_number]["section_reference"]
                 if section_reference == "":
                     reference_string += f"The document {document_name}  \n"
                 else:
                     reference_string += f"Section {section_reference} from {document_name}  \n"
-                used_sections.append(row_number)
-
-        '''
-        Having changed my approach, I now what to keep the inputs in self.messages_intermediate. This means keeping the original
-        LLM message and the original definitions and search DataFrames. When I parse these for the chat history, I will only include
-        The relevant messages and not all the values in the definition and search DataFrames
-
-        # Now update df_definitions, df_search_sections so that they only contained the sections referenced by the answer
-        # df_definitions = df_definitions.iloc[used_definitions] I think I want to keep all the definitions
-        df_search_sections = df_search_sections.iloc[used_sections]
-        df_definitions = df_definitions.iloc[used_definitions]
-
-        # Reconstruct the answer with reformatted references
-        formatted_references = f"  \n{self.reference_key_word}  \n{reference_string}"
-        return result['answer'] + formatted_references, df_definitions, df_search_sections
-        '''
-        formatted_references = f"  \n{self.reference_key_word}  \n{reference_string}"
+        if len(df_references_list) > 0:
+            formatted_references = f"  \n{self.reference_key_word}  \n{reference_string}"
+        
         return result['answer'] + formatted_references
 
 
