@@ -12,7 +12,7 @@ requirements = parse_requirements('requirements.txt')
 
 setup(
     name='regulations_rag',
-    version='0.7.2.3',
+    version='0.7.2.4',
     packages=find_packages(),  # Automatically find and include packages
     install_requires=requirements,
     include_package_data=True,  # Ensure package data files are included

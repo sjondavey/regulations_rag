@@ -220,7 +220,7 @@ class CorpusChat():
     for the various output (or input) formats
     '''
     def _extract_assistant_answer_and_references(self, result, df_definitions, df_search_sections):
-        references_list = [] # columns = ["document", "section_reference", "is_definition", "text"]
+        references_list = [] # columns = ["document_key", "document_name", "section_reference", "is_definition", "text"]
         
         #if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
         if not (result["success"] == True): # works for ANSWER and ERROR paths
@@ -234,7 +234,7 @@ class CorpusChat():
             headings = df_search_sections.columns.to_list()
             empty_results = pd.DataFrame([], columns = headings)
             # return result["answer"], df_definitions, empty_results
-            df_references_list = pd.DataFrame(references_list, columns = ["document", "section_reference", "is_definition", "text"])
+            df_references_list = pd.DataFrame(references_list, columns = ["document_key", "document_name", "section_reference", "is_definition", "text"])
             return result["answer"], df_references_list
 
         integer_references = cleaned_references
@@ -246,18 +246,21 @@ class CorpusChat():
         for reference in integer_references:
             if reference <= number_of_definitions:
                 row_number = reference - 1
+                document_key = df_definitions.iloc[row_number]["document"]
                 document_name = self.corpus.get_document(df_definitions.iloc[row_number]["document"]).name
                 section_reference = df_definitions.iloc[row_number]["section_reference"] # can be "" i.e. no reference
                 text = df_definitions.iloc[row_number]["definition"]
-                references_list.append([document_name, section_reference, True, text])
+                references_list.append([document_key, document_name, section_reference, True, text])
             else:
                 row_number = reference - number_of_definitions - 1
-                document_name = self.corpus.get_document(df_search_sections.iloc[row_number]["document"]).name
-                section_reference = df_search_sections.iloc[row_number]["section_reference"]
-                text = df_search_sections.iloc[row_number]["regulation_text"]
-                references_list.append([document_name, section_reference, False, text])
+                document_key = df_search_sections.iloc[row_number]["document"]
+                document_name = self.corpus.get_document(document_key).name
+                section_reference = df_search_sections.iloc[row_number]["section_reference"]                
+                text = self.corpus.get_text(document_name, section_reference, add_markdown_decorators=True, add_headings=True, section_only=False)
+                #text = df_search_sections.iloc[row_number]["regulation_text"]
+                references_list.append([document_key, document_name, section_reference, False, text])
 
-        df_references_list = pd.DataFrame(references_list, columns = ["document", "section_reference", "is_definition", "text"])
+        df_references_list = pd.DataFrame(references_list, columns = ["document_key", "document_name", "section_reference", "is_definition", "text"])
         return result['answer'], df_references_list
 
     def _reformat_assistant_answer(self, result, df_definitions, df_search_sections):
@@ -282,7 +285,7 @@ class CorpusChat():
         reference_string = ""
         formatted_references = ""
         for index, row in df_references_list.iterrows():
-            document_name = row["document"]
+            document_name = row["document_name"]
             section_reference = row["section_reference"]
             if row["is_definition"]:
                 if section_reference == "":
