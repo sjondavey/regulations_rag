@@ -234,7 +234,9 @@ class CorpusChat():
         - DataFrame: a subset of the input df_search_sections - the ones referenced in the LLM answer
         """
 
-
+        if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
+            return self.Errors.UNKNOWN_STATE.value
+            self.system_state = CorpusChat.State.STUCK
         # Extract and clean references from the raw response
         cleaned_references = result["reference"]
 
