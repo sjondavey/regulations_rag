@@ -74,11 +74,11 @@ class CorpusChat():
         ERROR = "ERROR:"
 
     class Errors(Enum):
-        NO_DATA = "ERROR: I was unable to find any relevant documentation to assist in answering the question. Can you try rephrasing the question?"
-        NO_RELEVANT_DATA = "ERROR: The documentation I have been provided does not help me answer the question. Please rephrase it and let's try again?"
+        NO_DATA = "ERROR: This app demonstrates Retrieval Augmented Generation (RAG). It is designed not to respond if it cannot retrieve relevant document sections to reference when answering a question. There are several reasons why valid questions may not yield relevant results, but often, minor rewording can help. A well-formed question is complete (i.e., it does not rely on previous conversation history for context and consists of more than just keywords or short phrases) and includes sufficient detail. Please try rephrasing your question, and I’ll see if I can find relevant sections to reference."
+        NO_RELEVANT_DATA = "ERROR: This app is an example of Retrieval-Augmented Generation. Once promising sections of the source documents are identified, they are checked for relevance. In this case, the retrieval (search) step found sections that seemed promising but, upon inspection, were not relevant. In situations like this, I have been programmed not to respond, but rather to ask you to rephrase your question so I can try again. Questions with the highest chance of being answered are complete (i.e., do not rely on conversation history and contain more than just keywords or phrases) and provide sufficient detail. Please try rephrasing your question, and I'll try again."
         STUCK = "ERROR: Unfortunately the system is in an unrecoverable state. Please clear the chat history and retry your query"
         UNKNOWN_STATE = "ERROR: The system is in an unknown state and cannot proceed. Please clear the chat history and retry your query"
-        NOT_FOLLOWING_INSTRUCTIONS = "ERROR: The call to the LLM resulted in a response that did not fit parameters, even after retrying it. Please clear the chat history and retry your query."
+        NOT_FOLLOWING_INSTRUCTIONS = "ERROR: This app demonstrates Retrieval Augmented Generation. Behind the scenes, instructions are issued to a Large Language Model (LLM) and then verified. Occasionally, due to the statistical nature of the model, the LLM may not follow instructions correctly. In such cases, I am programmed not to respond but to ask you to clear the conversation history and try asking your question again. This usually resolves the issue. However, if the same error persists in the same spot, it likely indicates a bug rather than a statistical anomaly. Bugs are logged and will be addressed in due course. For now, please clear the conversation history and retry your query."
 
     def __init__(self, 
                  openai_client, 
