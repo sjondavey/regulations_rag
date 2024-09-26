@@ -224,8 +224,9 @@ class CorpusChat():
         
         #if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
         if not (result["success"] == True): # works for ANSWER and ERROR paths
+            if 'assistant_response' in result:
+                return result['assistant_response']
             return self.Errors.UNKNOWN_STATE.value
-            self.system_state = CorpusChat.State.STUCK
         # Extract and clean references from the raw response
         cleaned_references = result["reference"]
 

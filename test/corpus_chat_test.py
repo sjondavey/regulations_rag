@@ -234,7 +234,7 @@ class TestCorpusChat:
         check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["success"]
         assert check_result["path"] == "ERROR:"
-        assert check_result["answer"] == "The call to the LLM resulted in a response that did not fit parameters, even after retrying it. Please clear the chat history and retry your query."        
+        assert check_result["answer"] == 'This app demonstrates Retrieval Augmented Generation. Behind the scenes, instructions are issued to a Large Language Model (LLM) and then verified. Occasionally, due to the statistical nature of the model, the LLM may not follow instructions correctly. In such cases, I am programmed not to respond but to ask you to clear the conversation history and try asking your question again. This usually resolves the issue. However, if the same error persists in the same spot, it likely indicates a bug rather than a statistical anomaly. Bugs are logged and will be addressed in due course. For now, please clear the conversation history and retry your query.'
         assert check_result["reference"] == []
 
         # Check if the response does not contain any keywords
