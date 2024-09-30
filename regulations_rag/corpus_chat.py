@@ -112,7 +112,7 @@ class CorpusChat():
         self.reference_key_word = "Reference:"
 
     def reset_conversation_history(self):
-        logger.log(ANALYSIS_LEVEL, f"{self.user_name}: Reset Conversation History")        
+        logger.log(DEV_LEVEL, f"{self.user_name}: Reset Conversation History")        
         self.messages_intermediate = []
         self.system_state = CorpusChat.State.RAG
 
@@ -693,7 +693,7 @@ class CorpusChat():
             return 
 
         elif self.system_state == CorpusChat.State.RAG:            
-            logger.log(ANALYSIS_LEVEL, f"{self.user_name} question: {user_content}")        
+            logger.log(DEV_LEVEL, f"{self.user_name} question: {user_content}")        
             workflow_triggered, df_definitions, df_search_sections = self.similarity_search(user_content) # df_search_sections MUST not have "document"
             
             if workflow_triggered != "none":
