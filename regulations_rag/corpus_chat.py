@@ -62,17 +62,23 @@ class CorpusChat():
         NEEDS_DATA = "requires_additional_sections"
         STUCK = "stuck"
 
+    '''
+    The assistant's response MUST begin with one of these. Much of the effort below will be to ensure this. When the assistant message
+    is parsed, this prefix will be stripped out and used to determine what to do with the remaining string - especially how to present it
+    in a UI
+    '''
     class Prefix(Enum):
         ANSWER = "ANSWER:"
         SECTION = "SECTION:"
         NONE = "NONE:"
+        ERROR = "ERROR:"
 
     class Errors(Enum):
-        NO_DATA = "I was unable to find any relevant documentation to assist in answering the question. Can you try rephrasing the question?"
-        NO_RELEVANT_DATA = "The documentation I have been provided does not help me answer the question. Please rephrase it and let's try again?"
-        STUCK = "Unfortunately the system is in an unrecoverable state. Please clear the chat history and retry your query"
-        UNKNOWN_STATE = "The system is in an unknown state and cannot proceed. Please clear the chat history and retry your query"
-        NOT_FOLLOWING_INSTRUCTIONS = "The call to the LLM resulted in a response that did not fit parameters, even after retrying it. Please clear the chat history and retry your query."
+        NO_DATA = "ERROR: This app demonstrates Retrieval Augmented Generation (RAG). It is designed not to respond if it cannot retrieve relevant document sections to reference when answering a question. There are several reasons why valid questions may not yield relevant results, but often, minor rewording can help. A well-formed question is complete (i.e., it does not rely on previous conversation history for context and consists of more than just keywords or short phrases) and includes sufficient detail. Please try rephrasing your question, and I’ll see if I can find relevant sections to reference."
+        NO_RELEVANT_DATA = "ERROR: This app is an example of Retrieval-Augmented Generation. Once promising sections of the source documents are identified, they are checked for relevance. In this case, the retrieval (search) step found sections that seemed promising but, upon inspection, were not relevant. In situations like this, I have been programmed not to respond, but rather to ask you to rephrase your question so I can try again. Questions with the highest chance of being answered are complete (i.e., do not rely on conversation history and contain more than just keywords or phrases) and provide sufficient detail. Please try rephrasing your question, and I'll try again."
+        STUCK = "ERROR: Unfortunately the system is in an unrecoverable state. Please clear the chat history and retry your query"
+        UNKNOWN_STATE = "ERROR: The system is in an unknown state and cannot proceed. Please clear the chat history and retry your query"
+        NOT_FOLLOWING_INSTRUCTIONS = "ERROR: This app demonstrates Retrieval Augmented Generation. Behind the scenes, instructions are issued to a Large Language Model (LLM) and then verified. Occasionally, due to the statistical nature of the model, the LLM may not follow instructions correctly. In such cases, I am programmed not to respond but to ask you to clear the conversation history and try asking your question again. This usually resolves the issue. However, if the same error persists in the same spot, it likely indicates a bug rather than a statistical anomaly. Bugs are logged and will be addressed in due course. For now, please clear the conversation history and retry your query."
 
     def __init__(self, 
                  openai_client, 
@@ -97,39 +103,207 @@ class CorpusChat():
         self.reset_conversation_history()
         self.token_limit_when_truncating_message_queue = 3500
 
+        # Key to CorpusChat is the notion of a reference. The LLM will be asked to answer the question based on a list of definitions
+        # and sections. The LLM will be "forced" to create a list of references at the end (AND only the end) of its response or its
+        # request for additional information. The text of the LLM response will be checked for (one) instance of this keyword and
+        # all the numbered references will be used to filter the initial list of references and to create a nicely formatted 
+        # response including the text of the reference(s). The keyword is defined as a variable because it is used in multiple places
+        # so none of these are missed if a change is necessary
+        self.reference_key_word = "Reference:"
+
     def reset_conversation_history(self):
-        logger.log(ANALYSIS_LEVEL, f"{self.user_name}: Reset Conversation History")        
-        self.messages = []
-        self.messages_without_rag = []
-        self.references = {}
+        logger.log(DEV_LEVEL, f"{self.user_name}: Reset Conversation History")        
+        self.messages_intermediate = []
         self.system_state = CorpusChat.State.RAG
 
 
-    def _extract_question_from_rag_data(self, decorated_question):
-        return decorated_question.split("\n")[0][len("Question: "):]
+    '''
+    The idea is to use an 'OpenAI like' dictionary of message contexts but with additional fields that contain text that may need to be treaded differently e.g. references.
+    The self.messages_intermediate can be used as the source of all information and can be formatted depending on who is using it (like OpenAI or the front end)
 
-    def append_content(self, role, content):
-        if role not in ["user", "assistant", "system"]:
+    To "future proof" this method, a dictionary other_content is provided. In this base class, it is not used. Override the methods
+
+
+    in need. One envisaged use is if you want to het your assistant to provide alternative wordings of a user question or an "explore further" or "delve deeper" suggestions
+    '''
+    def append_content(self, role, content, df_definitions = None, df_sections = None, other_text = {}):
+        if self.messages_intermediate and (self.messages_intermediate[-1]["role"] == role and self.messages_intermediate[-1]["content"] == content): # don't duplicate messages in the list
+            return
+
+        if role == "system":
+            self.messages_intermediate.append({"role": role, "content": content, "other_text": other_text})
+        elif role in ["user", "assistant"]:
+            if df_definitions is None:
+                df_definitions = pd.DataFrame()
+            if df_sections is None:
+                df_sections = pd.DataFrame()
+            self.messages_intermediate.append({"role": role, "content": content, "definitions": df_definitions.copy(), "sections": df_sections.copy(), "other_text": other_text})
+        else:
             logger.error(f"Tried to add a message for the role {role} which is not a valid role")
-            return
 
-        content_without_rag = content
+        return
 
-        if role == "user":            
-            if content.startswith("Question:"):
-                content_without_rag = self._extract_question_from_rag_data(content)
+    def format_messages_for_openai(self):
+        messages = []
+        for row in self.messages_intermediate:
+            role = row['role']
+            if role == 'system':
+                messages.append(self.create_openai_system_message(row))
+            elif role == 'user':
+                messages.append(self.create_openai_user_message(row))
+            elif role == "assistant":
+                messages.append(self.create_openai_assistant_message(row))
+        return messages
 
-        # nothing special for assistant or system messages
+    '''
+    Overwrite this message in your class if you need to incorporate anything from the "other_text" dictionary in the system prompt.
+    This default implementation ignores the "other_text" dictionary
+    '''
+    def create_openai_system_message(self, row):
+        return {"role": row['role'], "content": row['content']}
 
-        if self.messages and (self.messages[-1]["role"] == role and self.messages[-1]["content"] == content): # don't duplicate messages in the list
-            return
+    '''
+    Overwrite this message in your class if you need to incorporate anything from the "other_text" dictionary in the user prompt.
+    This default implementation ignores the "other_text" dictionary but incorporates RAG data from the definitions and sections
+    dictionary
+    '''
+    def create_openai_user_message(self, row):
+        question = row['content']
+        df_definitions = row['definitions']
+        df_search_sections = row['sections']
+        content_with_rag = self._add_rag_data_to_question(question, df_definitions, df_search_sections)
+        return {"role": row['role'], "content": content_with_rag}
 
-        self.messages.append({"role": role, "content": content})
-        # logger.log(ANALYSIS_LEVEL, f"{role} to {self.user_name}: {content}")        
-        self.messages_without_rag.append({"role": role, "content": content_without_rag})        
+    def _add_rag_data_to_question(self, question, df_definitions, df_search_sections):
+        """
+        Appends relevant definitions and sections from the Manual to the question to provide context.
 
-    def append_references(self, reformatted_response, df_references):
-        self.references[reformatted_response.strip()] = df_references
+        This method formats the question with additional information from the Manual, including definitions and referenced sections, to aid in answering the question more accurately.
+
+        Parameters:
+        - question (str): The original question to be answered.
+        - df_definitions (DataFrame): A DataFrame containing definitions from the Manual.
+        - df_search_sections (DataFrame): A DataFrame containing sections from the Manual relevant to the question.
+
+        Returns:
+        - str: The question appended with definitions and sections from the Manual.
+        """
+
+        user_content = f'Question: {question}\n\n'
+        counter = 1
+        if not df_definitions.empty:
+            for definition in df_definitions['definition'].to_list():
+                # Append the formatted string with the definition and a newline character
+                user_content += f"Extract {counter}:\n{definition}\n"
+                counter += 1
+
+        if not df_search_sections.empty:
+            for section in df_search_sections['regulation_text'].to_list():
+                # Append the formatted string with the definition and a newline character
+                user_content += f"Extract {counter}:\n{section}\n"
+                counter += 1
+
+        return user_content
+
+
+    def create_openai_assistant_message(self, row):
+        llm_reply = row['content']
+        df_definitions = row['definitions']
+        df_search_sections = row['sections']
+
+        response_dict = self._check_response(llm_reply, df_definitions, df_search_sections)
+        content_with_rag = self._reformat_assistant_answer(response_dict, df_definitions, df_search_sections)
+        return {"role": row['role'], "content": content_with_rag}
+
+    ''' 
+    An intermediate method to extract the LLM and the references from the "ANSWER:" path which can then be format
+    for the various output (or input) formats
+    '''
+    def _extract_assistant_answer_and_references(self, result, df_definitions, df_search_sections):
+        references_list = [] # columns = ["document_key", "document_name", "section_reference", "is_definition", "text"]
+        
+        #if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
+        if not (result["success"] == True): # works for ANSWER and ERROR paths
+            if 'assistant_response' in result:
+                return result['assistant_response']
+            return self.Errors.UNKNOWN_STATE.value
+        # Extract and clean references from the raw response
+        cleaned_references = result["reference"]
+
+        # Early return if no references found. Keep the definitions but empty the search sections
+        if not cleaned_references:
+            headings = df_search_sections.columns.to_list()
+            empty_results = pd.DataFrame([], columns = headings)
+            # return result["answer"], df_definitions, empty_results
+            df_references_list = pd.DataFrame(references_list, columns = ["document_key", "document_name", "section_reference", "is_definition", "text"])
+            return result["answer"], df_references_list
+
+        integer_references = cleaned_references
+
+        used_definitions = []
+        used_sections = []
+        reference_string = ""
+        number_of_definitions = len(df_definitions)
+        for reference in integer_references:
+            if reference <= number_of_definitions:
+                row_number = reference - 1
+                document_key = df_definitions.iloc[row_number]["document"]
+                document_name = self.corpus.get_document(df_definitions.iloc[row_number]["document"]).name
+                section_reference = df_definitions.iloc[row_number]["section_reference"] # can be "" i.e. no reference
+                text = df_definitions.iloc[row_number]["definition"]
+                references_list.append([document_key, document_name, section_reference, True, text])
+            else:
+                row_number = reference - number_of_definitions - 1
+                document_key = df_search_sections.iloc[row_number]["document"]
+                document_name = self.corpus.get_document(document_key).name
+                section_reference = df_search_sections.iloc[row_number]["section_reference"]                
+                text = self.corpus.get_text(document_name, section_reference, add_markdown_decorators=True, add_headings=True, section_only=False)
+                #text = df_search_sections.iloc[row_number]["regulation_text"]
+                references_list.append([document_key, document_name, section_reference, False, text])
+
+        df_references_list = pd.DataFrame(references_list, columns = ["document_key", "document_name", "section_reference", "is_definition", "text"])
+        return result['answer'], df_references_list
+
+    def _reformat_assistant_answer(self, result, df_definitions, df_search_sections):
+        """
+        Reformats the "Reference:" section from the LLM's response to ensure consistency with the correctly formatted
+        sections from the data used to populate the RAG content. It identifies each reference in the LLM's response,
+        replaces it with the closest match from a list of provided references, and removes duplicates.
+
+        Parameters:
+        - result = {"success": True, "path": "ANSWER:", "answer": llm_text_without_references, "reference": references_as_integers}
+        - df_definitions
+        - sections_in_rag (list): A list of correctly formatted reference sections.
+
+        Returns:
+        - str: The reformatted response with consistent reference formatting and no duplicate references.
+        If however there were problems extracting the references, this will return the original inputs
+        - DataFrame: ALL the input df_definitions 
+        - DataFrame: a subset of the input df_search_sections - the ones referenced in the LLM answer
+        """
+        llm_answer, df_references_list = self._extract_assistant_answer_and_references(result, df_definitions, df_search_sections)
+
+        reference_string = ""
+        formatted_references = ""
+        for index, row in df_references_list.iterrows():
+            document_name = row["document_name"]
+            section_reference = row["section_reference"]
+            if row["is_definition"]:
+                if section_reference == "":
+                    reference_string += f"The definitions in {document_name}  \n"
+                else:
+                    reference_string += f"Definition {section_reference} from {document_name}  \n"
+            else:
+                if section_reference == "":
+                    reference_string += f"The document {document_name}  \n"
+                else:
+                    reference_string += f"Section {section_reference} from {document_name}  \n"
+        if len(df_references_list) > 0:
+            formatted_references = f"  \n{self.reference_key_word}  \n{reference_string}"
+        
+        return result['answer'] + formatted_references
+
+
 
     def _create_system_message(self, number_of_options = 3, review = False):
         """
@@ -157,8 +331,8 @@ class CorpusChat():
         else:
             sample_reference = "[Insert Reference Value Here]"
         
-        sys_option_ans  = f"Answer the question. Preface an answer with the tag '{CorpusChat.Prefix.ANSWER.value}'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n"
-        sys_option_sec  = f"Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word '{CorpusChat.Prefix.SECTION.value}' followed by 'Extract extract_number, Reference section_reference' - for example SECTION: Extract 1, Reference {sample_reference}.\n"
+        sys_option_ans  = f"Answer the question. Preface an answer with the tag '{CorpusChat.Prefix.ANSWER.value}'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword '{self.reference_key_word}'. Do not include the word Extract, only provide the number(s).\n"
+        sys_option_sec  = f"Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word '{CorpusChat.Prefix.SECTION.value}' followed by 'Extract extract_number, {self.reference_key_word} section_reference' - for example SECTION: Extract 1, {self.reference_key_word} {sample_reference}.\n"
         sys_option_none = f"State '{CorpusChat.Prefix.NONE.value}' and nothing else in all other cases\n"
 
         if number_of_options == 2:
@@ -173,7 +347,7 @@ class CorpusChat():
         return sys_instruction
 
 
-    def _check_response(self, response, df_definitions, df_sections):
+    def _check_response(self, llm_response_text, df_definitions, df_sections):
         # Return dictionaries:
         #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction} 
         #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference}
@@ -181,15 +355,23 @@ class CorpusChat():
         #{"success": True, "path": "NONE:"}
 
 
-        if response.startswith(CorpusChat.Prefix.ANSWER.value):
+        if llm_response_text.startswith(CorpusChat.Prefix.ANSWER.value):
             prefix = CorpusChat.Prefix.ANSWER.value
+            answer = llm_response_text[len(prefix):].strip()
 
-            answer = response[len(prefix):].strip()
+            # the keyword 'self.reference_key_word' appears multiple times. I don't want this because I want to filter the DataFrames to only contain the 
+            # subset of information that was used and I have seen instances were, if there are multiple instances of the keyword 'self.reference_key_word'  
+            # will note make sense after the DataFrames have been filtered.
+            count = answer.count(self.reference_key_word)
+            if count > 1:
+                llm_instruction = f"When answering the question, you used the keyword '{self.reference_key_word}' more than once. It is vitally important that this keyword is only used once in your answer and then only at the end of the answer followed only by an integer, comma separated list of the extracts used. Please reformat your response so that there is only one instance of the keyword '{self.reference_key_word}' and it is at the end of the answer."
+                return {"success": False, "path": prefix, "llm_followup_instruction": llm_instruction}
+
 
             # Extract and clean references from the raw response
-            references = answer.split("Reference:")[-1].split(",") if "Reference:" in answer else []
+            references = answer.split(self.reference_key_word)[-1].split(",") if self.reference_key_word in answer else []
             cleaned_references = [ref.strip() for ref in references if ref.strip()]
-            llm_text = answer[:answer.rfind("Reference:")].strip() if "Reference:" in answer else answer
+            llm_text = answer[:answer.rfind(self.reference_key_word)].strip() if self.reference_key_word in answer else answer
 
             # Did not supply any references which is in line with the Instruction
             if not cleaned_references:                
@@ -217,11 +399,12 @@ class CorpusChat():
                             return {"success": False, "path": prefix, "llm_followup_instruction": llm_instruction}
                         references_as_integers.append(integer_value)
             
+
             return {"success": True, "path": prefix, "answer": llm_text, "reference": references_as_integers}
 
-        elif response.startswith(CorpusChat.Prefix.SECTION.value):
+        elif llm_response_text.startswith(CorpusChat.Prefix.SECTION.value):
             prefix = CorpusChat.Prefix.SECTION.value
-            request = response[len(prefix):].strip()
+            request = llm_response_text[len(prefix):].strip()
 
             document_name = ""
             section_reference = ""
@@ -262,44 +445,25 @@ class CorpusChat():
 
             return {"success": True, "path": prefix, "extract": extract_number, "document": document_name, "section": section_reference}
 
-        elif response.startswith(CorpusChat.Prefix.NONE.value):
+        elif llm_response_text.startswith(CorpusChat.Prefix.NONE.value):
             return {"success": True, "path": CorpusChat.Prefix.NONE.value}
 
-        llm_instruction = f"Your response, did not begin with one of the keywords, '{CorpusChat.Prefix.ANSWER.value}', '{CorpusChat.Prefix.SECTION.value}' or '{CorpusChat.Prefix.NONE.value}'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference: '. Do not include the word Extract, only provide the number(s).\n"
-        return {"success": False, "path": "NONE", "llm_followup_instruction": llm_instruction}
+        elif llm_response_text.startswith(CorpusChat.Prefix.ERROR.value):
+            prefix = CorpusChat.Prefix.ERROR.value
+            answer = llm_response_text[len(prefix):].strip()
+
+            references = []
+            cleaned_references = []
+            llm_text = answer
+
+            # Did not supply any references which is in line with the Instruction
+            return {"success": True, "path": prefix, "answer": llm_text, "reference": []}
+
+
+        llm_instruction = f"Your response, did not begin with one of the keywords, '{CorpusChat.Prefix.ANSWER.value}', '{CorpusChat.Prefix.SECTION.value}' or '{CorpusChat.Prefix.NONE.value}'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword '{self.reference_key_word}'. Do not include the word Extract, only provide the number(s).\n"
+        return {"success": False, "path": "NONE:", "llm_followup_instruction": llm_instruction}
         
 
-
-    def _add_rag_data_to_question(self, question, df_definitions, df_search_sections):
-        """
-        Appends relevant definitions and sections from the Manual to the question to provide context.
-
-        This method formats the question with additional information from the Manual, including definitions and referenced sections, to aid in answering the question more accurately.
-
-        Parameters:
-        - question (str): The original question to be answered.
-        - df_definitions (DataFrame): A DataFrame containing definitions from the Manual.
-        - df_search_sections (DataFrame): A DataFrame containing sections from the Manual relevant to the question.
-
-        Returns:
-        - str: The question appended with definitions and sections from the Manual.
-        """
-
-        user_content = f'Question: {question}\n\n'
-        counter = 1
-        if not df_definitions.empty:
-            for definition in df_definitions['definition'].to_list():
-                # Append the formatted string with the definition and a newline character
-                user_content += f"Extract {counter}:\n{definition}\n"
-                counter += 1
-
-        if not df_search_sections.empty:
-            for section in df_search_sections['regulation_text'].to_list():
-                # Append the formatted string with the definition and a newline character
-                user_content += f"Extract {counter}:\n{section}\n"
-                counter += 1
-
-        return user_content
 
 
 
@@ -452,17 +616,17 @@ class CorpusChat():
         #       if the result is unsuccessful
 
         # Here are the dictionary items returned from self._check_response()
-        #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction} 
-        #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference}
-        #{"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
-        #{"success": True, "path": "NONE:"}
+        #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction, "openai_response": unedited_response_from_openai} 
+        #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference, "openai_response": unedited_response_from_openai}
+        #{"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers, "openai_response": unedited_response_from_openai}
+        #{"success": True, "path": "NONE:", "openai_response": unedited_response_from_openai}
 
         if self.system_state != CorpusChat.State.RAG:
             logger.error("resource_augmented_query method called but the the system is not in rag state")
-            return {"success": False, "path": "NONE", "assistant_response": CorpusChat.State.STUCK.value} 
+            return {"success": False, "path": "NONE", "assistant_response": CorpusChat.State.STUCK.value, "openai_response": ""} 
         
 
-        if len(self.messages) > 1 or len(df_definitions) + len(df_search_sections) > 0: # should always be the case as we check this in the control loop
+        if len(self.messages_intermediate) > 1 or len(df_definitions) + len(df_search_sections) > 0: # should always be the case as we check this in the control loop
             logger.log(DEV_LEVEL, "#################   RAG Prompts   #################")
 
             system_content = self._create_system_message(number_of_options, review=False)
@@ -472,7 +636,7 @@ class CorpusChat():
             user_question = self._add_rag_data_to_question(user_question, df_definitions, df_search_sections)
             logger.log(DEV_LEVEL, "User Prompt with RAG:\n" + user_question) # this will be output with ANALYSIS_LEVEL
 
-            chat_messages = copy.deepcopy(self.messages)
+            chat_messages = self.format_messages_for_openai()
             chat_messages.append({"role": "user", "content": user_question})
 
             # Create a temporary message list. We will only add the messages to the chat history if we get well formatted answers
@@ -482,8 +646,8 @@ class CorpusChat():
             response = self._get_api_response(messages = truncated_chat)
 
             check_result = self._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+            check_result["openai_response"] = response
             if check_result["success"]:
-                check_result["question"] = user_question
                 return check_result
 
             # The model did not perform as instructed so we not ask it to check its work
@@ -499,17 +663,18 @@ class CorpusChat():
             response = self._get_api_response(messages = despondent_user_messages)
 
             check_result = self._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+            check_result["openai_response"] = response
             if check_result["success"]:
                 return check_result
             else: 
                 msg = f"Even after trying a second time, the LLM was not following instructions. New instruction: {check_result['llm_followup_instruction']}"
                 logger.error(msg)
-                return {"success": False, "path": check_result["path"], "assistant_response": CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value} 
+                return {"success": False, "path": check_result["path"], "assistant_response": CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value, "openai_response": response} 
 
 
         msg = "A call to resource_augmented_query was made with insufficient information"
         logger.error(msg)
-        return {"success": False, "path": "NONE", "assistant_response": CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value} 
+        return {"success": False, "path": "NONE", "assistant_response": CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value, "openai_response": ""} 
         
 
 
@@ -528,7 +693,7 @@ class CorpusChat():
             return 
 
         elif self.system_state == CorpusChat.State.RAG:            
-            logger.log(ANALYSIS_LEVEL, f"{self.user_name} question: {user_content}")        
+            logger.log(DEV_LEVEL, f"{self.user_name} question: {user_content}")        
             workflow_triggered, df_definitions, df_search_sections = self.similarity_search(user_content) # df_search_sections MUST not have "document"
             
             if workflow_triggered != "none":
@@ -536,7 +701,7 @@ class CorpusChat():
                 workflow_triggered, df_definitions, df_search_sections = self.execute_workflow(workflow_triggered, user_content)
 
             if (len(df_definitions) + len(df_search_sections) == 0): # unable to find any relevant text in the database
-                if len(self.messages) < 2:
+                if len(self.messages_intermediate) < 2:
                     logger.log(DEV_LEVEL, "Executing path for no retrieval and no conversation history")
                     return self.execute_path_no_retrieval_no_conversation_history(user_content)
                     
@@ -548,45 +713,38 @@ class CorpusChat():
             else: # Retrieval step returns data
                 result = self.resource_augmented_query(user_question = user_content, df_definitions = df_definitions, df_search_sections = df_search_sections, number_of_options=3)
 
-                if not result["success"]:
-                    logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
-                    return self.execute_path_for_unsuccessful_rag(user_content, df_definitions, df_search_sections)
-                    
-
-                if result["path"] == CorpusChat.Prefix.ANSWER.value:
-                    #   result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
-                    logger.error("corpus_chat.resource_augmented_query answered the question using the Retrieved text")
-                    return self.execute_path_for_successful_rag(user_content, df_definitions, df_search_sections, result)
-
-                elif result["path"] == CorpusChat.Prefix.NONE.value:
-                    #   result {"success": True, "path": "NONE:"}
-                    logger.info("corpus_chat.resource_augmented_query was not not able to find relevant information in the retrieved text")
-                    return self.execute_path_for_no_relevant_information_in_retrieved_text(user_content, df_definitions, df_search_sections)
-
-                elif result["path"] == CorpusChat.Prefix.SECTION.value:
-                    #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
-                    logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
-                    return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result)
-
-                else:
-                    logger.error("Note: RAG returned an unexpected response")
-                    self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
-                    self.system_state = CorpusChat.State.STUCK # We are at a dead end.
-                    return
+                return self.select_path_and_execute(user_content, df_definitions, df_search_sections, result)
         else:
             logger.error("The system is in an unknown state")
             self.append_content("assistant", CorpusChat.Errors.UNKNOWN_STATE.value)
             return
 
-    def collect_references(self, df_definitions, df_search_sections):
-        references = []
-        for index, row in df_definitions.iterrows():
-            references.append([row['document'], row['section_reference'], row['definition']])
-        for index, row in df_search_sections.iterrows():
-            references.append([row['document'], row['section_reference'], row['regulation_text']])
+    def select_path_and_execute(self, user_content, df_definitions, df_search_sections, result):
+        if not result["success"]:
+            logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
+            return self.execute_path_for_unsuccessful_rag(user_content, df_definitions, df_search_sections)
+            
+        if result["path"] == CorpusChat.Prefix.ANSWER.value:
+            #   result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
+            logger.log(DEV_LEVEL, "corpus_chat.resource_augmented_query answered the question using the Retrieved text")
+            return self.execute_path_for_successful_rag(user_content, df_definitions, df_search_sections, result)
 
-        df_references = pd.DataFrame(references, columns = ["document", "section_reference", "text"])
-        return df_references
+        elif result["path"] == CorpusChat.Prefix.NONE.value:
+            #   result {"success": True, "path": "NONE:"}
+            logger.info("corpus_chat.resource_augmented_query was not not able to find relevant information in the retrieved text")
+            return self.execute_path_for_no_relevant_information_in_retrieved_text(user_content, df_definitions, df_search_sections)
+
+        elif result["path"] == CorpusChat.Prefix.SECTION.value:
+            #   result = {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
+            logger.log(DEV_LEVEL, f"System requested for more info: Extract {result['extract']} requested section {result['section']}")
+            return self.execute_path_for_additional_sections_requested(user_content, df_definitions, df_search_sections, result)
+
+        else:
+            logger.error("Note: RAG returned an unexpected response")
+            self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
+            self.system_state = CorpusChat.State.STUCK # We are at a dead end.
+            return
+
 
     def add_section_to_resource(self, result, df_definitions, df_search_sections):
         '''
@@ -632,80 +790,11 @@ class CorpusChat():
 
         return new_sections
 
-
-
-
-    def reformat_assistant_answer(self, result, df_definitions, df_search_sections):
-        """
-        Reformats the "Reference" section from the LLM's response to ensure consistency with the correctly formatted
-        sections from the data used to populate the RAG content. It identifies each reference in the LLM's response,
-        replaces it with the closest match from a list of provided references, and removes duplicates.
-
-        Parameters:
-        - result = {"success": True, "path": "ANSWER:", "answer": llm_text_without_references, "reference": references_as_integers}
-        - df_definitions
-        - sections_in_rag (list): A list of correctly formatted reference sections.
-
-        Returns:
-        - str: The reformatted response with consistent reference formatting and no duplicate references.
-        If however there were problems extracting the references, this will return the original inputs
-        - DataFrame: ALL the input df_definitions 
-        - DataFrame: a subset of the input df_search_sections - the ones referenced in the LLM answer
-        """
-
-
-        # Extract and clean references from the raw response
-        cleaned_references = result["reference"]
-
-        # Early return if no references found. Keep the definitions but empty the search sections
-        if not cleaned_references:
-            headings = df_search_sections.columns.to_list()
-            empty_results = pd.DataFrame([], columns = headings)
-            return result["answer"], df_definitions, empty_results
-
-        integer_references = cleaned_references
-
-        used_definitions = []
-        used_sections = []
-        reference_string = ""
-        number_of_definitions = len(df_definitions)
-        for reference in integer_references:
-            if reference <= number_of_definitions:
-                row_number = reference - 1
-                document_name = self.corpus.get_document(df_definitions.iloc[row_number]["document"]).name
-                section_reference = df_definitions.iloc[row_number]["section_reference"]
-                if section_reference == "":
-                    reference_string += f"The definitions in {document_name}  \n"
-                else:
-                    reference_string += f"Definition {section_reference} from {document_name}  \n"
-                used_definitions.append(row_number)
-            else:
-                row_number = reference - number_of_definitions - 1
-                document_name = self.corpus.get_document(df_search_sections.iloc[row_number]["document"]).name
-                section_reference = df_search_sections.iloc[row_number]["section_reference"]
-                if section_reference == "":
-                    reference_string += f"The document {document_name}  \n"
-                else:
-                    reference_string += f"Section {section_reference} from {document_name}  \n"
-                used_sections.append(row_number)
-
-        # Now update df_definitions, df_search_sections so that they only contained the sections referenced by the answer
-        # df_definitions = df_definitions.iloc[used_definitions] I think I want to keep all the definitions
-        df_search_sections = df_search_sections.iloc[used_sections]
-        df_definitions = df_definitions.iloc[used_definitions]
-
-        # Reconstruct the answer with reformatted references
-        formatted_references = f"  \nReference:  \n{reference_string}"
-        return result['answer'] + formatted_references, df_definitions, df_search_sections
-
-
-
     def place_in_stuck_state(self):
         logger.error("The system is now in 'stuck' mode")
         self.append_content("assistant", CorpusChat.Errors.UNKNOWN_STATE.value)
         self.system_state = CorpusChat.State.STUCK
         return
-
 
     """ 
     Override this method if you have created a table of workflows for your chat bot
@@ -722,7 +811,7 @@ class CorpusChat():
     Override this method if you want to execute something specific when the user question does not result in any hits in the database
     and there is no conversation history that may otherwise allow the system to infer some context and phrase a better question.
 
-    The default behaviour here is to do nothing
+    The default behaviour is not to go to the LLM but simply return the hardcoded CorpusChat.Errors.NO_DATA.value error message
     """ 
     def execute_path_no_retrieval_no_conversation_history(self, user_content):
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_no_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
@@ -735,7 +824,7 @@ class CorpusChat():
     Override this method if you want to execute something specific when the user question does not result in any hits in the database
     BUT there IS conversation history that can be used to phrase a better question
 
-    The default behaviour here is to do nothing
+    The default behaviour is not to go to the LLM but simply return the hardcoded CorpusChat.Errors.NO_DATA.value error message
     """ 
     def execute_path_no_retrieval_with_conversation_history(self, user_content):
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_with_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
@@ -751,7 +840,7 @@ class CorpusChat():
     """ 
     def execute_path_for_unsuccessful_rag(self, user_content, df_definitions, df_search_sections):
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_unsuccessful_rag() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value and updating system_state to CorpusChat.State.STUCK")
-        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
+        self.append_content("user", user_content, df_definitions, df_search_sections)
         self.append_content("assistant", CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value)
         self.system_state = CorpusChat.State.STUCK # We are at a dead end.
         return
@@ -761,12 +850,11 @@ class CorpusChat():
         # result = {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_successful_rag() i.e. enriching the user question with the Retrieved text, reformatting the references")
 
-        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
-        reformatted_response, df_definitions, df_search_sections = self.reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
+        self.append_content("user", user_content, df_definitions, df_search_sections)
+        # reformatted_response = self._reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
         # collect references
-        df_references = self.collect_references(df_definitions, df_search_sections)
-        self.append_content("assistant", reformatted_response)
-        self.append_references(reformatted_response, df_references)
+        # HERE: The message must be result["answer"] + "Reference: " + the references
+        self.append_content("assistant", result["openai_response"], df_definitions, df_search_sections)
         self.system_state = CorpusChat.State.RAG 
         return 
 
@@ -774,8 +862,8 @@ class CorpusChat():
         # result {"success": True, "path": "NONE:"}
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_no_relevant_information_in_retrieved_text() i.e. forcing the assistant response to CorpusChat.Errors.NO_RELEVANT_DATA.value")
 
-        self.append_content("user", self._add_rag_data_to_question(user_content, df_definitions, df_search_sections))
-        self.append_content("assistant", CorpusChat.Errors.NO_RELEVANT_DATA.value)
+        self.append_content("user", user_content, df_definitions, df_search_sections)
+        self.append_content("assistant", CorpusChat.Errors.NO_RELEVANT_DATA.value, df_definitions, df_search_sections)
         self.system_state = CorpusChat.State.RAG
         return
 
