@@ -174,10 +174,10 @@ class CorpusChat():
         question = row['content']
         df_definitions = row['definitions']
         df_search_sections = row['sections']
-        content_with_rag = self._add_rag_data_to_question(question, df_definitions, df_search_sections)
+        content_with_rag = self.add_rag_data_to_question(question, df_definitions, df_search_sections)
         return {"role": row['role'], "content": content_with_rag}
 
-    def _add_rag_data_to_question(self, question, df_definitions, df_search_sections):
+    def add_rag_data_to_question(self, question, df_definitions, df_search_sections):
         """
         Appends relevant definitions and sections from the Manual to the question to provide context.
 
@@ -214,15 +214,15 @@ class CorpusChat():
         df_definitions = row['definitions']
         df_search_sections = row['sections']
 
-        response_dict = self._check_response(llm_reply, df_definitions, df_search_sections)
-        content_with_rag = self._reformat_assistant_answer(response_dict, df_definitions, df_search_sections)
+        response_dict = self.check_response(llm_reply, df_definitions, df_search_sections)
+        content_with_rag = self.reformat_assistant_answer(response_dict, df_definitions, df_search_sections)
         return {"role": row['role'], "content": content_with_rag}
 
     ''' 
     An intermediate method to extract the LLM and the references from the "ANSWER:" path which can then be format
     for the various output (or input) formats
     '''
-    def _extract_assistant_answer_and_references(self, result, df_definitions, df_search_sections):
+    def extract_assistant_answer_and_references(self, result, df_definitions, df_search_sections):
         references_list = [] # columns = ["document_key", "document_name", "section_reference", "is_definition", "text"]
         
         #if not (result["success"] == True and result["path"] == self.Prefix.ANSWER.value):
@@ -267,7 +267,7 @@ class CorpusChat():
         df_references_list = pd.DataFrame(references_list, columns = ["document_key", "document_name", "section_reference", "is_definition", "text"])
         return result['answer'], df_references_list
 
-    def _reformat_assistant_answer(self, result, df_definitions, df_search_sections):
+    def reformat_assistant_answer(self, result, df_definitions, df_search_sections):
         """
         Reformats the "Reference:" section from the LLM's response to ensure consistency with the correctly formatted
         sections from the data used to populate the RAG content. It identifies each reference in the LLM's response,
@@ -284,7 +284,7 @@ class CorpusChat():
         - DataFrame: ALL the input df_definitions 
         - DataFrame: a subset of the input df_search_sections - the ones referenced in the LLM answer
         """
-        llm_answer, df_references_list = self._extract_assistant_answer_and_references(result, df_definitions, df_search_sections)
+        llm_answer, df_references_list = self.extract_assistant_answer_and_references(result, df_definitions, df_search_sections)
 
         reference_string = ""
         formatted_references = ""
@@ -308,7 +308,7 @@ class CorpusChat():
 
 
 
-    def _create_system_message(self, number_of_options = 3, review = False):
+    def create_system_message(self, number_of_options = 3, review = False):
         """
         Generates a system message instructing the system on how to answer questions using specific guidelines.
 
@@ -350,7 +350,7 @@ class CorpusChat():
         return sys_instruction
 
 
-    def _check_response(self, llm_response_text, df_definitions, df_sections):
+    def check_response(self, llm_response_text, df_definitions, df_sections):
         # Return dictionaries:
         #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction} 
         #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference}
@@ -603,14 +603,14 @@ class CorpusChat():
         # after the second call, the LLM still does not return a response that follows the rules, this will return a False value for success.
 
         # NOTE: This function does not alter the user question nor the input RAG data so the RAG version of the user question is 
-        #        self._add_rag_data_to_question(user_question, df_definitions, df_search_sections)
+        #        self.add_rag_data_to_question(user_question, df_definitions, df_search_sections)
 
         # Returns
         # Unsuccessful path
         #   {"success": False, "path": ANSWER" / SECTION: / NONE:, "assistant_response": content} 
-        # i.e replace the "llm_followup_instruction" key from the the dictionary created in self._check_response() with the key "assistant_message"
+        # i.e replace the "llm_followup_instruction" key from the the dictionary created in self.check_response() with the key "assistant_message"
 
-        # successful returns are the same as the dictionary created in self._check_response() 
+        # successful returns are the same as the dictionary created in self.check_response() 
         #   {"success": True, "path": "SECTION:", "extract", extract_num_as_int "document": document_name, "section": section_reference} NB the document may not be the same as the document in extract_num_as_int
         #   {"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers}
         #   {"success": True, "path": "NONE:"}
@@ -618,7 +618,7 @@ class CorpusChat():
         # TODO: Ensure that the user_provides_input method takes responsibility for setting self.system_state = CorpusChat.State.STUCK
         #       if the result is unsuccessful
 
-        # Here are the dictionary items returned from self._check_response()
+        # Here are the dictionary items returned from self.check_response()
         #{"success": False, "path": "SECTION:"/"ANSWER:", "llm_followup_instruction": llm_instruction, "openai_response": unedited_response_from_openai} 
         #{"success": True, "path": "SECTION:", "document": 'GDPR', "section": section_reference, "openai_response": unedited_response_from_openai}
         #{"success": True, "path": "ANSWER:"", "answer": llm_text, "reference": references_as_integers, "openai_response": unedited_response_from_openai}
@@ -632,11 +632,11 @@ class CorpusChat():
         if len(self.messages_intermediate) > 1 or len(df_definitions) + len(df_search_sections) > 0: # should always be the case as we check this in the control loop
             logger.log(DEV_LEVEL, "#################   RAG Prompts   #################")
 
-            system_content = self._create_system_message(number_of_options, review=False)
+            system_content = self.create_system_message(number_of_options, review=False)
             logger.log(DEV_LEVEL, "System Prompt:\n" + system_content)
 
             # Replace the user question with the RAG version of it
-            user_question = self._add_rag_data_to_question(user_question, df_definitions, df_search_sections)
+            user_question = self.add_rag_data_to_question(user_question, df_definitions, df_search_sections)
             logger.log(DEV_LEVEL, "User Prompt with RAG:\n" + user_question) # this will be output with ANALYSIS_LEVEL
 
             chat_messages = self.format_messages_for_openai()
@@ -648,7 +648,7 @@ class CorpusChat():
 
             response = self._get_api_response(messages = truncated_chat)
 
-            check_result = self._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+            check_result = self.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
             check_result["openai_response"] = response
             if check_result["success"]:
                 return check_result
@@ -657,7 +657,7 @@ class CorpusChat():
             logger.info(f"Initial chat API response did not follow instructions. New instruction: {check_result['llm_followup_instruction']}")
 
             # despondent_user_content = f"Please check your answer and make sure you preface your response using only one of the three permissible words, {CorpusChat.Prefix.ANSWER.value}, {CorpusChat.Prefix.SECTION.value} or {CorpusChat.Prefix.NONE.value}"
-            # system_content = self._create_system_message(number_of_options, review=True)
+            # system_content = self.create_system_message(number_of_options, review=True)
 
             despondent_user_messages = truncated_chat + [
                                         {"role": "assistant", "content": response},
@@ -665,7 +665,7 @@ class CorpusChat():
 
             response = self._get_api_response(messages = despondent_user_messages)
 
-            check_result = self._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+            check_result = self.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
             check_result["openai_response"] = response
             if check_result["success"]:
                 return check_result
@@ -858,7 +858,7 @@ class CorpusChat():
         logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_for_successful_rag() i.e. enriching the user question with the Retrieved text, reformatting the references")
 
         self.append_content("user", user_content, df_definitions, df_search_sections)
-        # reformatted_response = self._reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
+        # reformatted_response = self.reformat_assistant_answer(result, df_definitions = df_definitions, df_search_sections = df_search_sections)
         # collect references
         # HERE: The message must be result["answer"] + "Reference: " + the references
         self.append_content("assistant", result["openai_response"], df_definitions, df_search_sections)
@@ -912,8 +912,8 @@ class CorpusChat():
             return
 
     # override this if the default message is not performing well in the implementing class
-    def _create_system_message_is_user_content_relevant(self):
-        logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() called the default _create_system_message_is_user_content_relevant(...) message")
+    def create_system_message_is_user_content_relevant(self):
+        logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() called the default create_system_message_is_user_content_relevant(...) message")
         
         return f"You are assisting a user answer technical questions about the {self.index.corpus_description}. \nYour task is to determine if their question is about this subject matter or not. It is possible the user may be engaging in pleasantries, small talk, may just be testing the bounds of the system or may be asking about how to circumvent to topic. For now please respond with one of only two responses: Relevant if the question, with the conversation history is about subject matter or how to comply with the regulations; or Not Relevant if the topic of the question is anything else. Only respond with Relevant or Not Relevant. Do not add any other text, punctuation or markup to your response."
 
@@ -921,7 +921,7 @@ class CorpusChat():
     def _is_user_content_relevant(self, user_content):
         logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() i.e. Checking to see if should engage with the user or not")
         
-        system_content = self._create_system_message_is_user_content_relevant()
+        system_content = self.create_system_message_is_user_content_relevant()
         # Create a complete list of messages excluding the system message
         messages = self.format_messages_for_openai()
         messages.append({'role': 'user', 'content': user_content})

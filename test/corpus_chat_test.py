@@ -61,11 +61,11 @@ class TestCorpusChat:
         assert openai_system_dict['role'] == role
         assert openai_system_dict['content'] == content
 
-    def test__add_rag_data_to_question(self):
+    def test_add_rag_data_to_question(self):
         df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
 
         question = "user asks question"
-        output_string = self.chat._add_rag_data_to_question(question, df_definitions, df_search_sections)
+        output_string = self.chat.add_rag_data_to_question(question, df_definitions, df_search_sections)
         expected_text = f'Question: user asks question\n\nExtract 1:\nMy definition from WRR\nExtract 2:\nMy definition from Plett\nExtract 3:\nMy Section 1.2 from WRR\nExtract 4:\nMy Section 1.3 from WRR\nExtract 5:\nMy section A.2(A)(i) from Plett\n'
         assert output_string == expected_text
 
@@ -86,7 +86,7 @@ class TestCorpusChat:
         expected_content = f'Question: User question here\n\nExtract 1:\nMy definition from WRR\nExtract 2:\nMy definition from Plett\nExtract 3:\nMy Section 1.2 from WRR\nExtract 4:\nMy Section 1.3 from WRR\nExtract 5:\nMy section A.2(A)(i) from Plett\n'
         assert openai_user_dict['content'] == expected_content
 
-    def test__reformat_assistant_answer(self):
+    def test_reformat_assistant_answer(self):
         # if there are no sections in the rag, return the raw response 
         df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
 
@@ -94,13 +94,13 @@ class TestCorpusChat:
 
         result["answer"] = "Some random text here."
         result["reference"] = [1, 2, 3, 5]
-        formatted_response = self.chat._reformat_assistant_answer(result, df_definitions, df_search_sections)
+        formatted_response = self.chat.reformat_assistant_answer(result, df_definitions, df_search_sections)
         raw_response = 'Some random text here.  \nReference:  \nDefinition 1 from Navigating Whale Rock Ridge  \nDefinition A.1 from Navigating Plett  \nSection 1.2 from Navigating Whale Rock Ridge  \nSection A.2(A)(i) from Navigating Plett  \n'
         assert formatted_response == raw_response
 
         result["answer"] = "Hi"
         result["reference"] = [] # no references
-        formatted_response = self.chat._reformat_assistant_answer(result, df_definitions, df_search_sections)
+        formatted_response = self.chat.reformat_assistant_answer(result, df_definitions, df_search_sections)
         assert result["answer"] == formatted_response
 
     def test_create_openai_assistant_message(self):
@@ -185,22 +185,22 @@ class TestCorpusChat:
         assert relevant_sections.iloc[1]["section_reference"] == '1.1' # order of these is not important
         assert relevant_sections.iloc[2]["section_reference"] == '1.2' # order of these is not important
 
-    def test__create_system_message(self):
+    def test_create_system_message(self):
         ref_string = r"[1-9](\.[1-9]){0,2}"  # the text_pattern from SimpleReferenceChecker which is the reference checker for the main document in the "navigating" Corpus (WRR)
         user_type = "a Visitor"
         corpus_description = "the Simplest way to Navigate Plett"
 
         expected_message = f"You are answering questions about {corpus_description} for {user_type} based only on the reference extracts provided. You have 3 options:\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word 'SECTION:' followed by 'Extract extract_number, Reference: section_reference' - for example SECTION: Extract 1, Reference: {ref_string}.\n3) State 'NONE:' and nothing else in all other cases\n"
-        assert self.chat._create_system_message(number_of_options=3, review = False) == expected_message
+        assert self.chat.create_system_message(number_of_options=3, review = False) == expected_message
 
         expected_message = f"You are answering questions about {corpus_description} for {user_type} based only on the reference extracts provided. You have 2 options:\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) State 'NONE:' and nothing else in all other cases\n"
-        assert self.chat._create_system_message(number_of_options=2, review = False) == expected_message
+        assert self.chat.create_system_message(number_of_options=2, review = False) == expected_message
 
         expected_message = f"Please review your answer. You were asked to assist the user by responding to their question in 1 of 3 ways but your response does not follow the expected format. Please reformat your response so that it follows the requested format.\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) Request additional documentation. If, in the body of the extract(s) provided, there is a reference to another section that is directly relevant and not already provided, respond with the word 'SECTION:' followed by 'Extract extract_number, Reference: section_reference' - for example SECTION: Extract 1, Reference: {ref_string}.\n3) State 'NONE:' and nothing else in all other cases\n"
-        assert self.chat._create_system_message(number_of_options=3, review = True) == expected_message
+        assert self.chat.create_system_message(number_of_options=3, review = True) == expected_message
 
         expected_message = f"Please review your answer. You were asked to assist the user by responding to their question in 1 of 2 ways but your response does not follow the expected format. Please reformat your response so that it follows the requested format.\n1) Answer the question. Preface an answer with the tag 'ANSWER:'. All referenced extracts must be quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n2) State 'NONE:' and nothing else in all other cases\n"
-        assert self.chat._create_system_message(number_of_options=2, review = True) == expected_message
+        assert self.chat.create_system_message(number_of_options=2, review = True) == expected_message
 
 
 
@@ -227,11 +227,11 @@ class TestCorpusChat:
         assert truncated[1]["content"] == "7"
         assert truncated[4]["content"] == "10"
 
-    def test__check_response(self):
+    def test_check_response(self):
         df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
 
         response = self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
-        check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =  self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["success"]
         assert check_result["path"] == "ERROR:"
         assert check_result["answer"] == 'This app demonstrates Retrieval Augmented Generation. Behind the scenes, instructions are issued to a Large Language Model (LLM) and then verified. Occasionally, due to the statistical nature of the model, the LLM may not follow instructions correctly. In such cases, I am programmed not to respond but to ask you to clear the conversation history and try asking your question again. This usually resolves the issue. However, if the same error persists in the same spot, it likely indicates a bug rather than a statistical anomaly. Bugs are logged and will be addressed in due course. For now, please clear the conversation history and retry your query.'
@@ -239,7 +239,7 @@ class TestCorpusChat:
 
         # Check if the response does not contain any keywords
         response = "I did not follow any instructions"
-        check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =  self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == "NONE:"
         assert check_result["llm_followup_instruction"] == "Your response, did not begin with one of the keywords, 'ANSWER:', 'SECTION:' or 'NONE:'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n"
@@ -248,7 +248,7 @@ class TestCorpusChat:
         # Check if the response contains multiple instances of the keyword "References:"
         # NOTE: this is not a good representative response from the LLM. It is only used here for testing
         response = "ANSWER: There are a few points to consider. \na) In this case you need Reference: 1, 3. \nb) In this case you need Reference: 2, 4. \n\n Which means you need Reference: 1, 2, 3, 4"
-        check_result =  self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =  self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == "ANSWER:"
         assert check_result["llm_followup_instruction"] == f"When answering the question, you used the keyword '{self.chat.reference_key_word}' more than once. It is vitally important that this keyword is only used once in your answer and then only at the end of the answer followed only by an integer, comma separated list of the extracts used. Please reformat your response so that there is only one instance of the keyword '{self.chat.reference_key_word}' and it is at the end of the answer."
@@ -259,7 +259,7 @@ class TestCorpusChat:
         text = "Here is an answer with no refs. It should pass because the instruction specifically said provide references *if* you used them"
         references = ""
         response = f"{path} {text} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["path"] == path
         assert check_result["success"]
         assert check_result["answer"] == text
@@ -269,7 +269,7 @@ class TestCorpusChat:
         text = "Here is an answer with no refs. It should pass because the instruction specifically said provide references *if* you used them"
         references = "Reference: "
         response = f"{path} {text} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["path"] == path
         assert check_result["success"]
         assert check_result["answer"] == text
@@ -281,7 +281,7 @@ class TestCorpusChat:
         text = "Here is a response but where the references are formatted incorrectly but I can still work with then."
         references = "Reference: Extract 1, Extract 3"
         response = f"{path} {text} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["path"] == path
         assert check_result["success"]
         assert check_result["answer"] == text
@@ -291,7 +291,7 @@ class TestCorpusChat:
         text = "Here is a response but where the references are formatted correctly."
         references = "Reference: 1,  3, 2, 4"
         response = f"{path} {text} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["path"] == path
         assert check_result["success"]
         assert check_result["answer"] == text
@@ -301,7 +301,7 @@ class TestCorpusChat:
         text = "Here is a response but where the references are formatted correctly but refer to something invalid."
         references = "Reference: 6"
         response = f"{path} {text} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["path"] == path
         assert not check_result["success"]
         assert check_result["llm_followup_instruction"] == "When answering the question, you have made reference to an extract number that was not provided. Please re-write your references and only refer to the extracts provided by their number"
@@ -310,14 +310,14 @@ class TestCorpusChat:
         text = "Here is a response but where the references are formatted correctly but refer to something invalid."
         references = "Reference: b"
         response = f"{path} {text} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["path"] == path
         assert not check_result["success"]
         assert check_result["llm_followup_instruction"] == "When answering the question, you have made reference to an extract but I am unable to extract the number from your reference. Please re-write your answer using integer extract number(s)"
 
         # Check NONE:
         response = "NONE: "
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["success"]
         assert check_result["path"] == "NONE:"
 
@@ -325,7 +325,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract 1, Reference 1.1"
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["success"]
         assert check_result["path"] == path
         assert check_result["document"] == 'WRR'
@@ -334,7 +334,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract (3), Reference Article 1.1"
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == path
         assert check_result["llm_followup_instruction"] == 'When requesting an additional section, you did not use the format r"Extract (\d+), Reference (.+)" or you included additional text. Please re-write your response using this format'
@@ -342,7 +342,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract 6, Reference Article 1.1"
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == path
         assert check_result["llm_followup_instruction"] == 'When requesting an additional section, you have made reference to an extract number that was not provided. Please re-write your answer and use a valid extract number'
@@ -350,7 +350,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract 3, Reference 1.1"
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["success"]
         assert check_result["path"] == path
         assert check_result["document"] == 'WRR'
@@ -359,7 +359,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract 5, Reference 1.1" # doc 5 is from Plett but it has a reference to a WRR section 
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert check_result["success"]
         assert check_result["path"] == path
         assert check_result["document"] == 'WRR'
@@ -368,7 +368,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract 3, Reference XXX" 
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == path
         ref_string = r"[1-9](\.[1-9]){0,2}"
@@ -377,7 +377,7 @@ class TestCorpusChat:
         path = "SECTION:"
         references = "Extract 5, Reference XXX" # doc 5 is article_30_5 but it may have a GDPR reference
         response = f"{path} {references}"
-        check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+        check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == path
         ref_string = r"[A-Z]\.\d{0,2}\([A-Z]\)\((?:i|ii|iii|iv|v|vi)\)\([a-z]\)\([a-z]{2}\)\(\d+\)" + ", or " + r"[1-9](\.[1-9]){0,2}"
@@ -386,7 +386,7 @@ class TestCorpusChat:
 #         # TODO: I need to test the case where the base document has a non-empty reference checker and that fails along with the GDPR reference checker
 #         # e.g.
 #         # response = "SECTION: Extract 5, Reference XXX" # doc 5 is article_30_5 but it may have a GDPR reference
-#         # check_result =    self.chat._check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
+#         # check_result =    self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
 #         # assert not check_result["success"]
 #         # assert check_message == "The reference XXX does not appear to be a valid reference for the document. Try using the format (\d{1,2})(?:\((\d{1,2})\))?(?:\(([a-z])\))?"
 #         # but with Extract 5 from a non-GDPR document with an index.
