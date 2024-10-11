@@ -525,7 +525,7 @@ class CorpusChat():
 
         return workflow_triggered, relevant_definitions, relevant_sections
 
-    def _get_api_response(self, messages):
+    def get_api_response(self, messages):
         """
         Fetches a response from the OpenAI API (use unittest.mock module to "hardcode" api responses)
 
@@ -555,7 +555,7 @@ class CorpusChat():
         response_text = response.choices[0].message.content
         return response_text
 
-    def _truncate_message_list(self, system_message, message_list, token_limit = 3500):
+    def truncate_message_list(self, system_message, message_list, token_limit = 3500):
         """
         Truncates the message list to fit within a specified token limit, ensuring the inclusion of the system message 
         and the most recent messages from the message list. The function guarantees that the returned list always contains 
@@ -644,9 +644,9 @@ class CorpusChat():
 
             # Create a temporary message list. We will only add the messages to the chat history if we get well formatted answers
             system_message = [{"role": "system", "content": system_content}]
-            truncated_chat = self._truncate_message_list(system_message, chat_messages, self.token_limit_when_truncating_message_queue)
+            truncated_chat = self.truncate_message_list(system_message, chat_messages, self.token_limit_when_truncating_message_queue)
 
-            response = self._get_api_response(messages = truncated_chat)
+            response = self.get_api_response(messages = truncated_chat)
 
             check_result = self.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
             check_result["openai_response"] = response
@@ -663,7 +663,7 @@ class CorpusChat():
                                         {"role": "assistant", "content": response},
                                         {"role": "user", "content": check_result["llm_followup_instruction"]}]
 
-            response = self._get_api_response(messages = despondent_user_messages)
+            response = self.get_api_response(messages = despondent_user_messages)
 
             check_result = self.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
             check_result["openai_response"] = response
@@ -912,33 +912,33 @@ class CorpusChat():
             return
 
     # override this if the default message is not performing well in the implementing class
-    def create_system_message_is_user_content_relevant(self):
-        logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() called the default create_system_message_is_user_content_relevant(...) message")
+    def create_system_messageis_user_content_relevant(self):
+        logger.log(DEV_LEVEL, "Executing CorpusChat.is_user_content_relevant() called the default create_system_messageis_user_content_relevant(...) message")
         
         return f"You are assisting a user answer technical questions about the {self.index.corpus_description}. \nYour task is to determine if their question is about this subject matter or not. It is possible the user may be engaging in pleasantries, small talk, may just be testing the bounds of the system or may be asking about how to circumvent to topic. For now please respond with one of only two responses: Relevant if the question, with the conversation history is about subject matter or how to comply with the regulations; or Not Relevant if the topic of the question is anything else. Only respond with Relevant or Not Relevant. Do not add any other text, punctuation or markup to your response."
 
 
-    def _is_user_content_relevant(self, user_content):
-        logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() i.e. Checking to see if should engage with the user or not")
+    def is_user_content_relevant(self, user_content):
+        logger.log(DEV_LEVEL, "Executing CorpusChat.is_user_content_relevant() i.e. Checking to see if should engage with the user or not")
         
-        system_content = self.create_system_message_is_user_content_relevant()
+        system_content = self.create_system_messageis_user_content_relevant()
         # Create a complete list of messages excluding the system message
         messages = self.format_messages_for_openai()
         messages.append({'role': 'user', 'content': user_content})
         # Truncate messages list to meet a specific token limit and ensure there is space for the system message
         system_message={'role': 'system', 'content': system_content}
-        truncated_messages = self._truncate_message_list([system_message], messages, token_limit=self.token_limit_when_truncating_message_queue)
+        truncated_messages = self.truncate_message_list([system_message], messages, token_limit=self.token_limit_when_truncating_message_queue)
         # NOTE, the truncated_messages will now contain the system message
-        initial_response = self._get_api_response(truncated_messages)
+        initial_response = self.get_api_response(truncated_messages)
         if initial_response.lower().strip() == 'relevant':
-            logger.log(DEV_LEVEL, "CorpusChat._is_user_content_relevant() determined that the content was relevant")
+            logger.log(DEV_LEVEL, "CorpusChat.is_user_content_relevant() determined that the content was relevant")
             return True
         else: # instead of placing the system in "stuck" mode, just continue as if the question was not relevant
-            logger.log(DEV_LEVEL, f"CorpusChat._is_user_content_relevant() determined that the content \'{initial_response}\' was not relevant")
+            logger.log(DEV_LEVEL, f"CorpusChat.is_user_content_relevant() determined that the content \'{initial_response}\' was not relevant")
             return False
 
     # this is left as a method so it can be overridden in implementing classes
-    def _create_assistant_message_user_content_not_relevant(self):
+    def create_assistant_message_user_content_not_relevant(self):
         if self.assume_streamlit_ui:
             assistant_content = f"ERROR: I am a bot designed to answer questions about the {self.index.corpus_description}. If you ask me a question about that, I will do my best to respond, with a reference. If I cannot find a relevant reference in my reference documents (see the Table of Content page), I have been coded not to respond to the question rather than offing my opinion. Please read the Documentation page for some suggestions if you find this feature frustrating (If you are using this on a mobile phone, look for the little '>' at the top left of your screen)"
         else:
@@ -949,6 +949,6 @@ class CorpusChat():
         logger.log(DEV_LEVEL, "Executing CorpusChat.hardcode_response_for_user_content_not_relevant(...): The user content did not appear to be a question relating to the subject matter")
         self.system_state = CorpusChat.State.RAG         
         self.append_content("user", user_content)       
-        assistant_content = self._create_assistant_message_user_content_not_relevant()
+        assistant_content = self.create_assistant_message_user_content_not_relevant()
         self.append_content("assistant", assistant_content)
         return
