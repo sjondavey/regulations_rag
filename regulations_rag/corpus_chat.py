@@ -72,9 +72,10 @@ class CorpusChat():
         SECTION = "SECTION:"
         NONE = "NONE:"
         ERROR = "ERROR:"
+        NORAG = "NORAG:"
 
     class Errors(Enum):
-        NO_DATA = "ERROR: This app demonstrates Retrieval Augmented Generation (RAG). It is designed not to respond if it cannot retrieve relevant document sections to reference when answering a question. There are several reasons why valid questions may not yield relevant results, but often, minor rewording can help. A well-formed question is complete (i.e., it does not rely on previous conversation history for context and consists of more than just keywords or short phrases) and includes sufficient detail. Please try rephrasing your question, and I’ll see if I can find relevant sections to reference."
+        NO_DATA = "ERROR: This app demonstrates Retrieval Augmented Generation (RAG). It is designed not to respond if it cannot retrieve relevant document sections to reference when answering a question. There are several reasons why valid questions may not yield relevant results, but often, minor rewording can help. A well-formed question is complete (i.e., it does not rely on previous conversation history for context and consists of more than just keywords or short phrases) and includes sufficient detail. Please try rephrasing your question, and I'll see if I can find relevant sections to reference."
         NO_RELEVANT_DATA = "ERROR: This app is an example of Retrieval-Augmented Generation. Once promising sections of the source documents are identified, they are checked for relevance. In this case, the retrieval (search) step found sections that seemed promising but, upon inspection, were not relevant. In situations like this, I have been programmed not to respond, but rather to ask you to rephrase your question so I can try again. Questions with the highest chance of being answered are complete (i.e., do not rely on conversation history and contain more than just keywords or phrases) and provide sufficient detail. Please try rephrasing your question, and I'll try again."
         STUCK = "ERROR: Unfortunately the system is in an unrecoverable state. Please clear the chat history and retry your query"
         UNKNOWN_STATE = "ERROR: The system is in an unknown state and cannot proceed. Please clear the chat history and retry your query"
@@ -110,6 +111,8 @@ class CorpusChat():
         # response including the text of the reference(s). The keyword is defined as a variable because it is used in multiple places
         # so none of these are missed if a change is necessary
         self.reference_key_word = "Reference:"
+        # this is used when creating assistant responses which may need to include information about the app layout
+        self.assume_streamlit_ui = False
 
     def reset_conversation_history(self):
         logger.log(DEV_LEVEL, f"{self.user_name}: Reset Conversation History")        
@@ -719,6 +722,10 @@ class CorpusChat():
             self.append_content("assistant", CorpusChat.Errors.UNKNOWN_STATE.value)
             return
 
+    # A fancy switch statement to manage the the results generated from the resource_augmented_query(...) function.
+    # Note that the paths execute_path_no_retrieval_no_conversation_history(...) and 
+    # execute_path_no_retrieval_with_conversation_history(...) are not dealt with here as they are triggered before 
+    # resource_augmented_query(...) is called
     def select_path_and_execute(self, user_content, df_definitions, df_search_sections, result):
         if not result["success"]:
             logger.error("corpus_chat.resource_augmented_query did not return result[\"success\"] == True.")
@@ -903,3 +910,45 @@ class CorpusChat():
             self.append_content("assistant", msg)
             self.system_state = CorpusChat.State.STUCK
             return
+
+    # override this if the default message is not performing well in the implementing class
+    def _create_system_message_is_user_content_relevant(self):
+        logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() called the default _create_system_message_is_user_content_relevant(...) message")
+        
+        return f"You are assisting a user answer technical questions about the {self.index.corpus_description}. \nYour task is to determine if their question is about this subject matter or not. It is possible the user may be engaging in pleasantries, small talk, may just be testing the bounds of the system or may be asking about how to circumvent to topic. For now please respond with one of only two responses: Relevant if the question, with the conversation history is about subject matter or how to comply with the regulations; or Not Relevant if the topic of the question is anything else. Only respond with Relevant or Not Relevant. Do not add any other text, punctuation or markup to your response."
+
+
+    def _is_user_content_relevant(self, user_content):
+        logger.log(DEV_LEVEL, "Executing CorpusChat._is_user_content_relevant() i.e. Checking to see if should engage with the user or not")
+        
+        system_content = self._create_system_message_is_user_content_relevant()
+        # Create a complete list of messages excluding the system message
+        messages = self.format_messages_for_openai()
+        messages.append({'role': 'user', 'content': user_content})
+        # Truncate messages list to meet a specific token limit and ensure there is space for the system message
+        system_message={'role': 'system', 'content': system_content}
+        truncated_messages = self._truncate_message_list([system_message], messages, token_limit=self.token_limit_when_truncating_message_queue)
+        # NOTE, the truncated_messages will now contain the system message
+        initial_response = self._get_api_response(truncated_messages)
+        if initial_response.lower().strip() == 'relevant':
+            logger.log(DEV_LEVEL, "CorpusChat._is_user_content_relevant() determined that the content was relevant")
+            return True
+        else: # instead of placing the system in "stuck" mode, just continue as if the question was not relevant
+            logger.log(DEV_LEVEL, f"CorpusChat._is_user_content_relevant() determined that the content \'{initial_response}\' was not relevant")
+            return False
+
+    # this is left as a method so it can be overridden in implementing classes
+    def _create_assistant_message_user_content_not_relevant(self):
+        if self.assume_streamlit_ui:
+            assistant_content = f"ERROR: I am a bot designed to answer questions about the {self.index.corpus_description}. If you ask me a question about that, I will do my best to respond, with a reference. If I cannot find a relevant reference in my reference documents (see the Table of Content page), I have been coded not to respond to the question rather than offing my opinion. Please read the Documentation page for some suggestions if you find this feature frustrating (If you are using this on a mobile phone, look for the little '>' at the top left of your screen)"
+        else:
+            assistant_content = f"ERROR: I am a bot designed to answer questions about the {self.index.corpus_description}. If you ask me a question about that, I will do my best to respond, with a reference. If I cannot find a relevant reference in my reference documents, I have been coded not to respond to the question rather than offing my opinion."
+        return assistant_content
+
+    def hardcode_response_for_user_content_not_relevant(self, user_content):
+        logger.log(DEV_LEVEL, "Executing CorpusChat.hardcode_response_for_user_content_not_relevant(...): The user content did not appear to be a question relating to the subject matter")
+        self.system_state = CorpusChat.State.RAG         
+        self.append_content("user", user_content)       
+        assistant_content = self._create_assistant_message_user_content_not_relevant()
+        self.append_content("assistant", assistant_content)
+        return

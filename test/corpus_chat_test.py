@@ -604,4 +604,10 @@ class TestCorpusChat:
         assert df_updated.iloc[2]['section_reference'] == 'A.2(A)(i)'
         assert df_updated.iloc[3]['section_reference'] == '1.1'
 
-
+    @patch.object(CorpusChat, '_get_api_response')
+    def test__is_user_content_relevant(self, mock__get_api_response):
+        mock__get_api_response.return_value = "Relevant"
+        assert self.chat._is_user_content_relevant("Some user input")
+        # Only "relevant" with capitialisation and white spaces should be true
+        mock__get_api_response.return_value = "Relevant:"
+        assert not self.chat._is_user_content_relevant("Some user input")
