@@ -97,7 +97,6 @@ class CorpusChat():
         self.index = corpus_index
         self.corpus = self.index.corpus
         self.primary_document = self.corpus.get_primary_document()
-        self.has_primary_document = False
         self.has_primary_document = self.primary_document != ""
 
         self.rerank_algo = rerank_algo
@@ -113,6 +112,9 @@ class CorpusChat():
         self.reference_key_word = "Reference:"
         # this is used when creating assistant responses which may need to include information about the app layout
         self.assume_streamlit_ui = False
+        # only answer if there is supporting information. If False, a general call will be placed to the LLM. The response, 
+        # if it chooses to respond, will be caveated
+        self.strick_rag = True
 
     def reset_conversation_history(self):
         logger.log(DEV_LEVEL, f"{self.user_name}: Reset Conversation History")        
@@ -124,10 +126,8 @@ class CorpusChat():
     The idea is to use an 'OpenAI like' dictionary of message contexts but with additional fields that contain text that may need to be treaded differently e.g. references.
     The self.messages_intermediate can be used as the source of all information and can be formatted depending on who is using it (like OpenAI or the front end)
 
-    To "future proof" this method, a dictionary other_content is provided. In this base class, it is not used. Override the methods
-
-
-    in need. One envisaged use is if you want to het your assistant to provide alternative wordings of a user question or an "explore further" or "delve deeper" suggestions
+    To "future proof" this method, a dictionary other_content is provided. In this base class, it is not used. Override the methods in need. 
+    One envisaged use is if you want to get your assistant to provide alternative wordings of a user question or an "explore further" or "delve deeper" suggestions
     '''
     def append_content(self, role, content, df_definitions = None, df_sections = None, other_text = {}):
         if self.messages_intermediate and (self.messages_intermediate[-1]["role"] == role and self.messages_intermediate[-1]["content"] == content): # don't duplicate messages in the list
@@ -211,8 +211,8 @@ class CorpusChat():
 
     def create_openai_assistant_message(self, row):
         llm_reply = row['content']
-        df_definitions = row['definitions']
-        df_search_sections = row['sections']
+        df_definitions = row.get('definitions', pd.DataFrame())
+        df_search_sections = row.get('sections', pd.DataFrame())
 
         response_dict = self.check_response(llm_reply, df_definitions, df_search_sections)
         content_with_rag = self.reformat_assistant_answer(response_dict, df_definitions, df_search_sections)
@@ -462,8 +462,12 @@ class CorpusChat():
             # Did not supply any references which is in line with the Instruction
             return {"success": True, "path": prefix, "answer": llm_text, "reference": []}
 
+        elif llm_response_text.startswith(CorpusChat.Prefix.NORAG.value):
+            prefix = CorpusChat.Prefix.NORAG.value
+            answer = llm_response_text[len(prefix):].strip()
+            return {"success": True, "path": prefix, "answer": answer, "reference": []}
 
-        llm_instruction = f"Your response, did not begin with one of the keywords, '{CorpusChat.Prefix.ANSWER.value}', '{CorpusChat.Prefix.SECTION.value}' or '{CorpusChat.Prefix.NONE.value}'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword '{self.reference_key_word}'. Do not include the word Extract, only provide the number(s).\n"
+        llm_instruction = f"Your response, did not begin with one of the keywords, '{CorpusChat.Prefix.ANSWER.value}', '{CorpusChat.Prefix.SECTION.value}', '{CorpusChat.Prefix.NONE.value}' or '{CorpusChat.Prefix.NORAG.value}'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword '{self.reference_key_word}'. Do not include the word Extract, only provide the number(s).\n"
         return {"success": False, "path": "NONE:", "llm_followup_instruction": llm_instruction}
         
 
@@ -656,9 +660,6 @@ class CorpusChat():
             # The model did not perform as instructed so we not ask it to check its work
             logger.info(f"Initial chat API response did not follow instructions. New instruction: {check_result['llm_followup_instruction']}")
 
-            # despondent_user_content = f"Please check your answer and make sure you preface your response using only one of the three permissible words, {CorpusChat.Prefix.ANSWER.value}, {CorpusChat.Prefix.SECTION.value} or {CorpusChat.Prefix.NONE.value}"
-            # system_content = self.create_system_message(number_of_options, review=True)
-
             despondent_user_messages = truncated_chat + [
                                         {"role": "assistant", "content": response},
                                         {"role": "user", "content": check_result["llm_followup_instruction"]}]
@@ -679,7 +680,48 @@ class CorpusChat():
         logger.error(msg)
         return {"success": False, "path": "NONE", "assistant_response": CorpusChat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value, "openai_response": ""} 
         
+    # override this message in your implementing class if you need to refine the details about what constitutes a relevant topic
+    def create_system_content_no_rag_data(self):
+        logger.log(DEV_LEVEL, "CorpusChat.create_system_content_no_rag_data() called with default system content for RAG without supporting data")
 
+        self.tap_out_phrase = "Not Relevant"
+        system_message = f"You are answering questions about {self.index.corpus_description} for {self.index.user_type}. Based on an initial search of the relevant document database, no reference documents could be found to assist in answering the users question. Please review the user question. If it is not related to the topic or if you don't know the answer, respond with the words {self.tap_out_phrase} without punctuation or any other text. If the question is relevant and you are comfortable answering the question, please do so."
+        return system_message
+
+    # in case you need to overwrite this in an implementing class
+    def get_caveat_for_no_rag_response(self):
+        caveated_response = "NOTE: The following answer is provided without references and should therefore be treated with caution."
+        return caveated_response
+
+    def query_no_rag_data(self, user_question):
+        # Returns
+        # Unsuccessful path
+        #   {"success": False, "path": "NORAG:", "assistant_response": CorpusChat.State.NO_DATA.value, "openai_response": ""}
+
+        # successful path 
+        # {"success": True, "path": "NORAG:", "answer": caveated_response, "reference": "", "openai_response": response}
+        logger.log(DEV_LEVEL, "CorpusChat.query_without_resources() called")
+
+        if self.system_state != CorpusChat.State.RAG:
+            logger.error("CorpusChat.query_without_resources() called but the the system is not in rag state")
+            return {"success": False, "path": "NONE", "assistant_response": CorpusChat.State.STUCK.value, "openai_response": ""} 
+        
+        system_content = self.create_system_content_no_rag_data()
+        chat_messages = self.format_messages_for_openai()
+        chat_messages.append({"role": "user", "content": user_question})
+
+        # Create a temporary message list. We will only add the messages to the chat history if we get well formatted answers
+        system_message = [{"role": "system", "content": system_content}]
+        truncated_chat = self.truncate_message_list(system_message, chat_messages, self.token_limit_when_truncating_message_queue)
+
+        response = self.get_api_response(messages = truncated_chat)
+
+        if response.lower().strip() == self.tap_out_phrase.lower().strip():
+            logger.log(DEV_LEVEL, "CorpusChat.query_without_resources() did not want to answer the user's question")
+            return {"success": False, "path": "NORAG:", "assistant_response": CorpusChat.Errors.NO_DATA.value, "openai_response": ""} 
+
+        caveated_response = self.get_caveat_for_no_rag_response() + "\n\n" + response
+        return {"success": True, "path": "NORAG:", "answer": caveated_response, "reference": "", "openai_response": response}
 
 
     # Note: To test the workflow I need some way to control the openai API responses. I have chosen to do this with unittest.mock module to "hardcode" api responses
@@ -821,24 +863,32 @@ class CorpusChat():
     The default behaviour is not to go to the LLM but simply return the hardcoded CorpusChat.Errors.NO_DATA.value error message
     """ 
     def execute_path_no_retrieval_no_conversation_history(self, user_content):
-        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_no_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
+        if self.strick_rag:
+            logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_no_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
+            self.system_state = CorpusChat.State.RAG         
+            self.append_content("user", user_content)       
+            self.append_content("assistant", CorpusChat.Errors.NO_DATA.value)
+            return
+        else:
+            result = self.query_no_rag_data(user_content)
+            return self.process_no_rag_result(user_content, result)
+
+    def process_no_rag_result(self, user_content, result):
         self.system_state = CorpusChat.State.RAG         
         self.append_content("user", user_content)       
-        self.append_content("assistant", CorpusChat.Errors.NO_DATA.value)
+        if result['success']:
+            self.append_content("assistant", CorpusChat.Prefix.NORAG.value + result['answer'], other_text={'path': 'NORAG', 'openai_response': result['openai_response']})
+        else:
+            self.append_content("assistant", result['assistant_response'], other_text={'path': 'NORAG', 'openai_response': result['openai_response']})
         return
 
     """ 
     Override this method if you want to execute something specific when the user question does not result in any hits in the database
     BUT there IS conversation history that can be used to phrase a better question
-
-    The default behaviour is not to go to the LLM but simply return the hardcoded CorpusChat.Errors.NO_DATA.value error message
     """ 
     def execute_path_no_retrieval_with_conversation_history(self, user_content):
-        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_with_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
-        self.system_state = CorpusChat.State.RAG         
-        self.append_content("user", user_content)       
-        self.append_content("assistant", CorpusChat.Errors.NO_DATA.value)
-        return
+        logger.log(DEV_LEVEL, "Executing default corpus_chat.execute_path_no_retrieval_with_conversation_history()")
+        return self.execute_path_no_retrieval_no_conversation_history(user_content)
 
     """ 
     Override this method if you want to execute something specific when the retrieval augmented generation step returns result["success"] != True
@@ -912,8 +962,8 @@ class CorpusChat():
             return
 
     # override this if the default message is not performing well in the implementing class
-    def create_system_messageis_user_content_relevant(self):
-        logger.log(DEV_LEVEL, "Executing CorpusChat.is_user_content_relevant() called the default create_system_messageis_user_content_relevant(...) message")
+    def create_system_message_is_user_content_relevant(self):
+        logger.log(DEV_LEVEL, "Executing CorpusChat.is_user_content_relevant() called the default create_system_message_is_user_content_relevant(...) message")
         
         return f"You are assisting a user answer technical questions about the {self.index.corpus_description}. \nYour task is to determine if their question is about this subject matter or not. It is possible the user may be engaging in pleasantries, small talk, may just be testing the bounds of the system or may be asking about how to circumvent to topic. For now please respond with one of only two responses: Relevant if the question, with the conversation history is about subject matter or how to comply with the regulations; or Not Relevant if the topic of the question is anything else. Only respond with Relevant or Not Relevant. Do not add any other text, punctuation or markup to your response."
 
@@ -921,7 +971,7 @@ class CorpusChat():
     def is_user_content_relevant(self, user_content):
         logger.log(DEV_LEVEL, "Executing CorpusChat.is_user_content_relevant() i.e. Checking to see if should engage with the user or not")
         
-        system_content = self.create_system_messageis_user_content_relevant()
+        system_content = self.create_system_message_is_user_content_relevant()
         # Create a complete list of messages excluding the system message
         messages = self.format_messages_for_openai()
         messages.append({'role': 'user', 'content': user_content})

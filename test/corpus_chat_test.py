@@ -30,6 +30,7 @@ class TestCorpusChat:
                         corpus_index = corpus_index,
                         rerank_algo = rerank_algo,   
                         user_name_for_logging = 'test_user')
+    
 
     def test_construction(self):
         assert True
@@ -119,6 +120,22 @@ class TestCorpusChat:
         assert openai_assistant_dict['role'] == role
         expected_content = 'Some random text here.  \nReference:  \nDefinition 1 from Navigating Whale Rock Ridge  \nDefinition A.1 from Navigating Plett  \nSection 1.2 from Navigating Whale Rock Ridge  \nSection A.2(A)(i) from Navigating Plett  \n'
         assert openai_assistant_dict['content'] == expected_content
+
+        # Test NORAG case
+        llm_response = "This is a response without RAG data."
+        caveated_response = self.chat.get_caveat_for_no_rag_response() + "\n\n" + llm_response
+        # from chatcorpus.query_no_rag_data(...) the result generated is in this format
+        # {"success": True, "path": "NORAG:", "answer": caveated_response, "reference": "", "openai_response": response}
+        result = {"success": True, "path": "NORAG:", "answer": caveated_response, "openai_response": llm_response}
+        # in the execute_path_no_retrieval_no_conversation_history(...) method, the context is prefixed with 
+        # CorpusChat.Prefix.NORAG.value before it is passed to self.append_content(...)
+        norag_assistant_dict = {"role": role, "content": CorpusChat.Prefix.NORAG.value + result['answer']}
+
+        norag_openai_assistant_dict = self.chat.create_openai_assistant_message(norag_assistant_dict)
+        assert norag_openai_assistant_dict['role'] == role
+        expected_norag_content = self.chat.get_caveat_for_no_rag_response() + "\n\nThis is a response without RAG data."
+        assert norag_openai_assistant_dict['content'] == expected_norag_content
+
 
 
 
@@ -227,7 +244,7 @@ class TestCorpusChat:
         assert truncated[1]["content"] == "7"
         assert truncated[4]["content"] == "10"
 
-    def test_check_response(self):
+    def testcheck_response(self):
         df_definitions, df_search_sections = self.create_dummy_definitions_and_search_data()
 
         response = self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
@@ -242,7 +259,7 @@ class TestCorpusChat:
         check_result =  self.chat.check_response(response, df_definitions=df_definitions, df_sections=df_search_sections)
         assert not check_result["success"]
         assert check_result["path"] == "NONE:"
-        assert check_result["llm_followup_instruction"] == "Your response, did not begin with one of the keywords, 'ANSWER:', 'SECTION:' or 'NONE:'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n"
+        assert check_result["llm_followup_instruction"] == "Your response, did not begin with one of the keywords, 'ANSWER:', 'SECTION:', 'NONE:' or 'NORAG:'. Please review the question and provide an answer in the required format. Also make sure the referenced extracts are quoted at the end of the answer, not in the body, by number, in a comma separated list starting after the keyword 'Reference:'. Do not include the word Extract, only provide the number(s).\n"
 
 
         # Check if the response contains multiple instances of the keyword "References:"
@@ -452,6 +469,20 @@ class TestCorpusChat:
         assert result["path"] == "NONE:"
         assert result["assistant_response"] == self.chat.Errors.NOT_FOLLOWING_INSTRUCTIONS.value
 
+    @patch.object(CorpusChat, 'get_api_response')
+    def test_query_no_rag_data(self, mock_get_api_response):
+        tap_out_phrase = "Not Relevant"
+        mock_get_api_response.return_value = tap_out_phrase
+        result = self.chat.query_no_rag_data("How do I take money offshore without having to declare it?")
+        assert result['success'] == False
+        assert result['path'] == self.chat.Prefix.NORAG.value
+
+        llm_response = "Well, that is an interesting story. Strap in ..."
+        mock_get_api_response.return_value = llm_response
+        result = self.chat.query_no_rag_data("How do I take money offshore without having to declare it?")
+        assert result['success'] == True
+        assert result['path'] == self.chat.Prefix.NORAG.value
+        assert result['answer'] == self.chat.get_caveat_for_no_rag_response() + "\n\n" + llm_response
 
     # NOTE: I'm going to use use mocking from the unittest.mock module to "hardcode" api responses
     @patch.object(CorpusChat, 'get_api_response')
@@ -611,3 +642,45 @@ class TestCorpusChat:
         # Only "relevant" with capitialisation and white spaces should be true
         mock_get_api_response.return_value = "Relevant:"
         assert not self.chat.is_user_content_relevant("Some user input")
+
+    @patch.object(CorpusChat, 'get_api_response')
+    def test_execute_path_no_retrieval_no_conversation_history(self, mock_get_api_response):
+        self.chat.reset_conversation_history()
+        user_content = "What is an exchange rate?"
+        self.chat.execute_path_no_retrieval_no_conversation_history(user_content)
+        
+        assert self.chat.system_state == self.chat.State.RAG         
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"] == user_content
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"] == self.chat.Errors.NO_DATA.value
+
+        self.chat.strick_rag = False
+        self.chat.reset_conversation_history()
+        mock_get_api_response.return_value = "Not Relevant"
+        self.chat.execute_path_no_retrieval_no_conversation_history(user_content)        
+        assert self.chat.system_state == self.chat.State.RAG         
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"] == user_content
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"] == self.chat.State.NO_DATA.value
+
+        self.chat.strick_rag = False
+        self.chat.reset_conversation_history()
+        llm_response = "Really?! You don't know what an exchange rate is?"
+        mock_get_api_response.return_value = llm_response
+        self.chat.execute_path_no_retrieval_no_conversation_history(user_content)        
+        assert self.chat.system_state == self.chat.State.RAG         
+        assert self.chat.messages_intermediate[-2]["role"] == "user"
+        assert self.chat.messages_intermediate[-2]["content"] == user_content
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"] == self.chat.Prefix.NORAG.value + self.chat.get_caveat_for_no_rag_response() + "\n\n" + llm_response
+
+        self.chat.strick_rag = True # reset the value
+
+
+
+    def test_execute_path_no_retrieval_with_conversation_history(self):
+        # execute_path_no_retrieval_with_conversation_history returns the same as execute_path_no_retrieval_no_conversation_history for now so no need to test
+        assert True
+
