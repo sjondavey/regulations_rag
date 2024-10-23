@@ -97,7 +97,7 @@ class CorpusChat():
         self.assume_streamlit_ui = False
         # only answer if there is supporting information. If False, a general call will be placed to the LLM. The response, 
         # if it chooses to respond, will be caveated
-        self.strick_rag = True
+        self.strict_rag = True
 
     def reset_conversation_history(self):
         logger.log(DEV_LEVEL, f"{self.user_name}: Reset Conversation History")        
@@ -210,7 +210,7 @@ class CorpusChat():
     def execute_path_no_retrieval_no_conversation_history(self, user_content):
         if self.system_state != CorpusChat.State.RAG:
             return
-        if self.strick_rag:
+        if self.strict_rag:
             logger.log(DEV_LEVEL, "Executing default CorpusChat.execute_path_no_retrieval_no_conversation_history() i.e. bypassing the LLM and forcing the assistant to respond with CorpusChat.Errors.NO_DATA.value")
             self.system_state = CorpusChat.State.RAG         
             self.append_content({"role": "user", "content": user_content})       

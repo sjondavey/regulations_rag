@@ -145,7 +145,7 @@ class TestCorpusChat:
         self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
         self.chat.user_provides_input("Hi")
-        self.chat.strick_rag = True
+        self.chat.strict_rag = True
         # test the path if the system answers the question as hoped
         corpus_index = NavigatingIndex()
         api_key = os.environ.get("OPENAI_API_KEY")
@@ -154,7 +154,7 @@ class TestCorpusChat:
         chat_parameters = self.chat.chat_parameters
         self.chat.reset_conversation_history()
         self.chat.system_state = self.chat.State.RAG
-        self.chat.strick_rag = True
+        self.chat.strict_rag = True
         flag = "ANSWER: "
         input_response = 'Drive to West Gate. Reference: 2'
         output_response = 'Drive to West Gate.  \nReference:  \nSection A.2(A) from Navigating Plett'
@@ -251,7 +251,7 @@ class TestCorpusChat:
 
     def test_execute_path_no_retrieval_no_conversation_history(self):
         self.chat.reset_conversation_history()
-        self.chat.strick_rag = True
+        self.chat.strict_rag = True
         user_content = "What is an exchange rate?"
         self.chat.execute_path_no_retrieval_no_conversation_history(user_content)
         
@@ -263,7 +263,7 @@ class TestCorpusChat:
         assert self.chat.messages_intermediate[-1]["role"] == "assistant"
         assert self.chat.messages_intermediate[-1]["content"] == NoAnswerResponse(NoAnswerClassification.NO_DATA).create_openai_content()
 
-        self.chat.strick_rag = False
+        self.chat.strict_rag = False
         self.chat.reset_conversation_history()
         mock_get_api_response = "Not Relevant. This does not have anything to do with the topic."
         with patch.object(self.chat.chat_parameters, 'get_api_response', return_value = mock_get_api_response):
@@ -277,7 +277,7 @@ class TestCorpusChat:
         assert self.chat.messages_intermediate[-1]["role"] == "assistant"
         assert self.chat.messages_intermediate[-1]["content"] == "This does not have anything to do with the topic."
 
-        self.chat.strick_rag = False
+        self.chat.strict_rag = False
         self.chat.reset_conversation_history()
         llm_response = "Really?! You don't know what an exchange rate is?"
         mock_get_api_response = MagicMock()
@@ -296,7 +296,7 @@ class TestCorpusChat:
         assert self.chat.messages_intermediate[-1]["role"] == "assistant"
         assert self.chat.messages_intermediate[-1]["content"] == get_caveat_for_no_rag_response() + "\n\n" + llm_response
 
-        self.chat.strick_rag = True # reset the value
+        self.chat.strict_rag = True # reset the value
 
 
 
