@@ -14,18 +14,18 @@ class Corpus:
     def __init__(self, document_dictionary):
         self.all_documents = document_dictionary
 
-    def get_document(self, document_name):
-        return self.all_documents.get(document_name)
+    def get_document(self, document_key):
+        return self.all_documents.get(document_key)
 
-    def get_heading(self, document_name, section_reference):
-        doc = self.get_document(document_name)
+    def get_heading(self, document_key, section_reference):
+        doc = self.get_document(document_key)
         return doc.get_heading(section_reference) if doc else None
 
     def get_primary_document(self):
         return ""
 
-    def get_text(self, document_name, section_reference, add_markdown_decorators=True, add_headings=True, section_only=False):
-        doc = self.get_document(document_name)
+    def get_text(self, document_key, section_reference, add_markdown_decorators=True, add_headings=True, section_only=False):
+        doc = self.get_document(document_key)
         if doc:
             return doc.get_text(section_reference, add_markdown_decorators, add_headings, section_only)
         return None
