@@ -304,3 +304,30 @@ class TestCorpusChat:
         # execute_path_no_retrieval_with_conversation_history returns the same as execute_path_no_retrieval_no_conversation_history for now so no need to test
         assert True
 
+
+
+    def test_execute_path_answer_question_with_no_data(self):
+        self.chat.strict_rag = True
+        self.chat.reset_conversation_history()
+        # with strict rag on, this should return a NoAnswerResponse with classification QUESTION_NOT_RELEVANT
+        user_content = "What is an exchange rate?"
+        self.chat.execute_path_answer_question_with_no_data(user_content)
+        assert self.chat.system_state == self.chat.State.RAG
+        assert isinstance(self.chat.messages_intermediate[-1]["assistant_response"], NoAnswerResponse)
+        assert self.chat.messages_intermediate[-1]["assistant_response"].classification == NoAnswerClassification.NO_DATA
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        assert self.chat.messages_intermediate[-1]["content"] == NoAnswerClassification.NO_DATA.value
+
+
+        self.chat.strict_rag = False
+        self.chat.reset_conversation_history()
+        # with strict rag off and an irrelevant answer, this should return a NoAnswerResponse with classification QUESTION_NOT_RELEVANT
+        user_content = "What is an exchange rate?"
+        self.chat.execute_path_answer_question_with_no_data(user_content)
+        assert self.chat.system_state == self.chat.State.RAG
+        assert isinstance(self.chat.messages_intermediate[-1]["assistant_response"], NoAnswerResponse)
+        assert self.chat.messages_intermediate[-1]["assistant_response"].classification == NoAnswerClassification.QUESTION_NOT_RELEVANT
+        assert self.chat.messages_intermediate[-1]["role"] == "assistant"
+        #assert self.chat.messages_intermediate[-1]["content"] == NoAnswerClassification.NO_DATA.value
+
+        self.chat.strict_rag = True

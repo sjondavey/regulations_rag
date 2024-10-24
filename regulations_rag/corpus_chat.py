@@ -178,11 +178,19 @@ class CorpusChat():
                                              user_message = {"role": "user", "content": user_content, "reference_material": {"definitions": df_definitions, "sections": df_search_sections}})
                 result = perform_RAG_path(chat_data)
 
+                if isinstance(result["assistant_response"], NoAnswerResponse) and self.strict_rag == False:
+                    if result["assistant_response"].classification == NoAnswerClassification.QUESTION_NOT_RELEVANT: # if we no it is not relevant, don't retest it
+                        self.append_content({"role": "user", "content": user_content, "reference_material": {"definitions": df_definitions, "sections": df_search_sections}})
+                        self.append_content(result)                
+                        return
+                    else:
+                        return self.execute_path_answer_question_with_no_data(user_content)
 
 
-                self.append_content({"role": "user", "content": user_content, "reference_material": {"definitions": df_definitions, "sections": df_search_sections}})
-                self.append_content(result)                
-                return
+                else:
+                    self.append_content({"role": "user", "content": user_content, "reference_material": {"definitions": df_definitions, "sections": df_search_sections}})
+                    self.append_content(result)                
+                    return
         else:
             message = "CorpusChat.user_provides_input() did not process user input because of an unknown system_state"
             logger.error(message)
@@ -238,8 +246,7 @@ class CorpusChat():
         if self.system_state != CorpusChat.State.RAG:
             return
 
-        relevant, reason = self.is_user_content_relevant(user_content)            
-        if relevant:           
+        if self.strict_rag == False:           
             chat_data = ChatDataForNoRAGData(corpus_index = self.index, 
                                                 chat_parameters = self.chat_parameters, 
                                                 messages = self.messages_intermediate, 
@@ -250,8 +257,8 @@ class CorpusChat():
             return
         else:
             self.append_content({"role": "user", "content": user_content})       
-            assistant_response = NoAnswerResponse(NoAnswerClassification.QUESTION_NOT_RELEVANT, reason)
-            result = {"role": "assistant", "content": reason, "assistant_response": assistant_response}
+            assistant_response = NoAnswerResponse(NoAnswerClassification.NO_DATA)
+            result = {"role": "assistant", "content": NoAnswerClassification.NO_DATA.value, "assistant_response": assistant_response}
             self.append_content(result)
             return
 
