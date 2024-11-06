@@ -5,8 +5,6 @@ import logging
 from enum import Enum
 from collections import Counter
 
-from regulations_rag.string_tools import match_strings_to_reference_list
-
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
